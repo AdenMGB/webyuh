@@ -2,10 +2,7 @@ name: adenmgb-homewebsite
 
 services:
   web:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: adenmgb-homewebsite:latest
+    image: ghcr.io/adenmgb/webyuh:latest
     container_name: adenmgb-homewebsite
     restart: unless-stopped
     ports:
