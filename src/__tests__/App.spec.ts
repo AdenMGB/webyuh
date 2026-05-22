@@ -4,8 +4,10 @@ import { mount } from '@vue/test-utils'
 import App from '../App.vue'
 
 describe('App', () => {
-  it('mounts renders properly', () => {
+  it('renders the AdenMGB portfolio', () => {
     const wrapper = mount(App)
-    expect(wrapper.text()).toContain('You did it!')
+    expect(wrapper.text()).toContain('AdenMGB')
+    expect(wrapper.text()).toContain('GitHub')
+    expect(wrapper.text()).toContain('aden@adenmgb.com')
   })
 })
