@@ -17,12 +17,13 @@ const state = reactive({
 })
 
 let frame = 0
+let lastTime = 0
 
 function resetBall(direction = 1) {
   state.ballX = 50
   state.ballY = 50
-  state.vx = direction * (0.72 + Math.random() * 0.25)
-  state.vy = (Math.random() - 0.5) * 0.9
+  state.vx = direction * (0.028 + Math.random() * 0.01)
+  state.vy = (Math.random() - 0.5) * 0.032
   state.rally = 0
 }
 
@@ -34,23 +35,25 @@ function start() {
   resetBall(Math.random() > 0.5 ? 1 : -1)
 }
 
-function tick() {
+function tick(now: number) {
+  const delta = Math.min(now - lastTime, 34)
+  lastTime = now
   if (state.running) {
-    state.ballX += state.vx
-    state.ballY += state.vy
-    state.aiY += (state.ballY - state.aiY - 7) * 0.055
+    state.ballX += state.vx * delta
+    state.ballY += state.vy * delta
+    state.aiY += (state.ballY - state.aiY - 7) * 0.0022 * delta
 
     if (state.ballY <= 2 || state.ballY >= 98) state.vy *= -1
 
     if (state.ballX <= 7 && Math.abs(state.ballY - (state.playerY + 8)) < 12) {
-      state.vx = Math.abs(state.vx) + 0.04
-      state.vy += (state.ballY - (state.playerY + 8)) * 0.035
+      state.vx = Math.abs(state.vx) + 0.0016
+      state.vy += (state.ballY - (state.playerY + 8)) * 0.0012
       state.rally += 1
     }
 
     if (state.ballX >= 93 && Math.abs(state.ballY - (state.aiY + 8)) < 12) {
-      state.vx = -Math.abs(state.vx) - 0.035
-      state.vy += (state.ballY - (state.aiY + 8)) * 0.03
+      state.vx = -Math.abs(state.vx) - 0.0014
+      state.vy += (state.ballY - (state.aiY + 8)) * 0.001
       state.rally += 1
     }
 
@@ -84,6 +87,7 @@ function key(event: KeyboardEvent) {
 }
 
 onMounted(() => {
+  lastTime = performance.now()
   frame = requestAnimationFrame(tick)
   window.addEventListener('keydown', key)
 })
@@ -147,5 +151,17 @@ onBeforeUnmount(() => {
   background: #ffe4dc;
   box-shadow: 0 0 1.8rem rgba(255, 45, 29, 0.8);
   transform: translate(-50%, -50%);
+}
+
+@media (max-width: 700px) {
+  .pong-board {
+    height: 58svh;
+    min-height: 23rem;
+  }
+
+  .paddle {
+    width: 0.8rem;
+    height: 20%;
+  }
 }
 </style>

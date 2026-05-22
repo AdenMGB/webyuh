@@ -15,7 +15,8 @@ const state = reactive({
 })
 
 let frame = 0
-let tickCount = 0
+let elapsed = 0
+let lastTime = 0
 
 function start() {
   state.running = true
@@ -23,22 +24,27 @@ function start() {
   state.velocity = 0
   state.pipes = [{ x: 95, gap: 42, scored: false }]
   state.score = 0
-  tickCount = 0
+  elapsed = 0
   state.message = 'Stay calm. Small taps beat panic taps.'
 }
 
 function flap() {
   if (!state.running) start()
-  state.velocity = -1.75
+  state.velocity = -0.055
 }
 
-function loop() {
+function loop(now: number) {
+  const delta = Math.min(now - lastTime, 34)
+  lastTime = now
   if (state.running) {
-    tickCount += 1
-    state.velocity += 0.085
-    state.birdY += state.velocity
-    if (tickCount % 105 === 0) state.pipes.push({ x: 105, gap: 22 + Math.random() * 48, scored: false })
-    state.pipes.forEach((pipe) => (pipe.x -= 0.62))
+    elapsed += delta
+    state.velocity += 0.0026 * delta
+    state.birdY += state.velocity * delta
+    if (elapsed > 1850) {
+      state.pipes.push({ x: 105, gap: 24 + Math.random() * 44, scored: false })
+      elapsed = 0
+    }
+    state.pipes.forEach((pipe) => (pipe.x -= 0.018 * delta))
     state.pipes = state.pipes.filter((pipe) => pipe.x > -12)
 
     state.pipes.forEach((pipe) => {
@@ -70,6 +76,7 @@ function key(event: KeyboardEvent) {
 }
 
 onMounted(() => {
+  lastTime = performance.now()
   frame = requestAnimationFrame(loop)
   window.addEventListener('keydown', key)
 })
@@ -100,6 +107,7 @@ onBeforeUnmount(() => {
   width: 100%;
   cursor: pointer;
   overflow: hidden;
+  touch-action: manipulation;
 }
 
 .bird {
@@ -122,4 +130,15 @@ onBeforeUnmount(() => {
 
 .top { top: 0; }
 .bottom { bottom: 0; }
+
+@media (max-width: 700px) {
+  .flappy-board {
+    height: 62svh;
+    min-height: 24rem;
+  }
+
+  .pipe {
+    width: 3.1rem;
+  }
+}
 </style>

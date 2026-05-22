@@ -8,14 +8,15 @@ const anchors = [
   { x: 72, y: 30 },
 ]
 
-const state = reactive({ running: false, x: 10, y: 58, vx: 0.75, vy: 0, hooked: false, anchor: 0, best: 0, message: 'Hold to hook the nearest anchor. Release to launch.' })
+const state = reactive({ running: false, x: 10, y: 58, vx: 0.026, vy: 0, hooked: false, anchor: 0, best: 0, message: 'Hold to hook the nearest anchor. Release to launch.' })
 let frame = 0
+let lastTime = 0
 
 function start() {
   state.running = true
   state.x = 10
   state.y = 58
-  state.vx = 0.75
+  state.vx = 0.026
   state.vy = 0
   state.hooked = false
   state.message = 'Swing. Release at the bottom for speed.'
@@ -33,21 +34,23 @@ function hook() {
 
 function release() { state.hooked = false }
 
-function loop() {
+function loop(now: number) {
+  const delta = Math.min(now - lastTime, 34)
+  lastTime = now
   if (state.running) {
     if (state.hooked) {
       const anchor = anchors[state.anchor]!
       const dx = anchor.x - state.x
       const dy = anchor.y - state.y
-      state.vx += dx * 0.0024
-      state.vy += dy * 0.0024
+      state.vx += dx * 0.00008 * delta
+      state.vy += dy * 0.00008 * delta
     } else {
-      state.vy += 0.045
+      state.vy += 0.0014 * delta
     }
-    state.vx *= 0.996
-    state.vy *= 0.996
-    state.x += state.vx
-    state.y += state.vy
+    state.vx *= 0.998
+    state.vy *= 0.998
+    state.x += state.vx * delta
+    state.y += state.vy * delta
     if (state.y > 86) {
       state.y = 86
       state.vy *= -0.42
@@ -63,7 +66,10 @@ function loop() {
   frame = requestAnimationFrame(loop)
 }
 
-onMounted(() => { frame = requestAnimationFrame(loop) })
+onMounted(() => {
+  lastTime = performance.now()
+  frame = requestAnimationFrame(loop)
+})
 onBeforeUnmount(() => cancelAnimationFrame(frame))
 </script>
 
@@ -131,5 +137,12 @@ onBeforeUnmount(() => cancelAnimationFrame(frame))
   width: 0.25rem;
   height: 100%;
   background: repeating-linear-gradient(to bottom, #ff3924 0 1rem, transparent 1rem 2rem);
+}
+
+@media (max-width: 700px) {
+  .hook-board {
+    height: 58svh;
+    min-height: 23rem;
+  }
 }
 </style>

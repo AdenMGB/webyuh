@@ -189,7 +189,7 @@ function stopLoop() {
 
 function restartLoop() {
   stopLoop()
-  timer = window.setInterval(tick, Math.max(120, 720 - state.level * 58))
+  timer = window.setInterval(tick, Math.max(190, 920 - state.level * 62))
 }
 
 function handleKey(event: KeyboardEvent) {
@@ -284,6 +284,11 @@ onBeforeUnmount(() => {
 @media (max-width: 760px) {
   .tetris-layout {
     grid-template-columns: 1fr;
+  }
+
+  .tetris-board {
+    max-width: min(100%, 23rem);
+    margin: 0 auto;
   }
 }
 </style>

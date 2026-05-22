@@ -77,6 +77,9 @@ function setupRouting() {
     currentPage.value = window.location.pathname === '/arcade' ? 'arcade' : 'home'
     if (currentPage.value === 'arcade') {
       activeSection.value = 'Arcade'
+      cleanupHomeEffects()
+    } else {
+      void refreshHomeEffects()
     }
   }
 
@@ -91,6 +94,7 @@ async function navigate(event: MouseEvent, href: string) {
 
   if (href === '/arcade') {
     history.pushState({}, '', '/arcade')
+    cleanupHomeEffects()
     currentPage.value = 'arcade'
     activeSection.value = 'Arcade'
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -101,7 +105,7 @@ async function navigate(event: MouseEvent, href: string) {
   if (currentPage.value === 'arcade') {
     history.pushState({}, '', '/')
     currentPage.value = 'home'
-    await nextTick()
+    await refreshHomeEffects()
   }
 
   const target = document.querySelector<HTMLElement>(href)
@@ -110,6 +114,20 @@ async function navigate(event: MouseEvent, href: string) {
 
 function isNavActive(label: string) {
   return currentPage.value === 'arcade' ? label === 'Arcade' : activeSection.value === label
+}
+
+function cleanupHomeEffects() {
+  cleanupObservers?.()
+  cleanupObservers = undefined
+  cleanupHeroTitle?.()
+  cleanupHeroTitle = undefined
+}
+
+async function refreshHomeEffects() {
+  await nextTick()
+  cleanupHomeEffects()
+  cleanupObservers = setupObservers()
+  cleanupHeroTitle = setupHeroTitleShader()
 }
 
 function setupHeroTitleShader() {
@@ -686,54 +704,56 @@ function setupProductCanvas(canvas: HTMLCanvasElement) {
       </a>
     </nav>
 
-    <main v-if="currentPage === 'home'">
-      <section id="intro" class="hero" data-section="AdenMGB">
-        <div class="hero-inner">
-          <p class="eyebrow" data-reveal>Developer. Creative technologist.</p>
-          <h1 ref="heroTitleRef" class="hero-title" data-text="AdenMGB" data-reveal>AdenMGB</h1>
-          <p class="lead" data-reveal>Open-source interfaces and BetterSEQTA tools built for speed and polish.</p>
-        </div>
-      </section>
-
-      <section class="story" aria-label="AdenMGB product story">
-        <div class="sticky-stage">
-          <canvas ref="canvasRef" aria-hidden="true"></canvas>
-          <div class="story-copy">
-            <p class="eyebrow" data-reveal>Built with intent</p>
-            <h2 data-reveal>Less noise. More signal.</h2>
-            <p data-reveal>Focused interfaces, smooth motion, and tools that stay out of the way.</p>
+    <Transition name="page-shift" mode="out-in" @after-enter="currentPage === 'home' && refreshHomeEffects()">
+      <main v-if="currentPage === 'home'" key="home">
+        <section id="intro" class="hero" data-section="AdenMGB">
+          <div class="hero-inner">
+            <p class="eyebrow" data-reveal>Developer. Creative technologist.</p>
+            <h1 ref="heroTitleRef" class="hero-title" data-text="AdenMGB" data-reveal>AdenMGB</h1>
+            <p class="lead" data-reveal>Open-source interfaces and BetterSEQTA tools built for speed and polish.</p>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section id="work" class="panel" data-section="Work">
-        <div class="section-heading" data-reveal>
-          <p class="eyebrow">Selected work</p>
-          <h2>BetterSEQTA, refined.</h2>
-        </div>
-
-        <div class="work-list">
-          <a v-for="project in projects" :key="project.name" :href="project.href" target="_blank" rel="noreferrer" data-reveal>
-            <span>{{ project.name }}</span>
-            <p>{{ project.line }}</p>
-          </a>
-        </div>
-      </section>
-
-      <section id="contact" class="contact" data-section="Contact">
-        <div class="contact-inner" data-reveal>
-          <p class="eyebrow">Contact</p>
-          <h2>Build something clean.</h2>
-          <div class="contact-links">
-            <a href="https://github.com/AdenMGB" target="_blank" rel="noreferrer">GitHub</a>
-            <a href="mailto:aden@adenmgb.com">aden@adenmgb.com</a>
-            <a href="https://discord.com/" target="_blank" rel="noreferrer">Discord: AdenMGB</a>
+        <section class="story" aria-label="AdenMGB product story">
+          <div class="sticky-stage">
+            <canvas ref="canvasRef" aria-hidden="true"></canvas>
+            <div class="story-copy">
+              <p class="eyebrow" data-reveal>Built with intent</p>
+              <h2 data-reveal>Less noise. More signal.</h2>
+              <p data-reveal>Focused interfaces, smooth motion, and tools that stay out of the way.</p>
+            </div>
           </div>
-        </div>
-      </section>
-    </main>
+        </section>
 
-    <ArcadePage v-else />
+        <section id="work" class="panel" data-section="Work">
+          <div class="section-heading" data-reveal>
+            <p class="eyebrow">Selected work</p>
+            <h2>BetterSEQTA, refined.</h2>
+          </div>
+
+          <div class="work-list">
+            <a v-for="project in projects" :key="project.name" :href="project.href" target="_blank" rel="noreferrer" data-reveal>
+              <span>{{ project.name }}</span>
+              <p>{{ project.line }}</p>
+            </a>
+          </div>
+        </section>
+
+        <section id="contact" class="contact" data-section="Contact">
+          <div class="contact-inner" data-reveal>
+            <p class="eyebrow">Contact</p>
+            <h2>Build something clean.</h2>
+            <div class="contact-links">
+              <a href="https://github.com/AdenMGB" target="_blank" rel="noreferrer">GitHub</a>
+              <a href="mailto:aden@adenmgb.com">aden@adenmgb.com</a>
+              <a href="https://discord.com/" target="_blank" rel="noreferrer">Discord: AdenMGB</a>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <ArcadePage v-else key="arcade" />
+    </Transition>
   </div>
 </template>
 
@@ -1085,6 +1105,23 @@ h2 {
 .contact-links a:hover {
   background: rgba(255, 52, 35, 0.13);
   transform: translateY(-2px);
+}
+
+.page-shift-enter-active,
+.page-shift-leave-active {
+  transition: opacity 420ms cubic-bezier(0.22, 1, 0.36, 1), transform 420ms cubic-bezier(0.22, 1, 0.36, 1), filter 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.page-shift-enter-from {
+  opacity: 0;
+  filter: blur(18px);
+  transform: translateY(1.6rem) scale(0.985);
+}
+
+.page-shift-leave-to {
+  opacity: 0;
+  filter: blur(14px);
+  transform: translateY(-1rem) scale(0.99);
 }
 
 [data-reveal] {

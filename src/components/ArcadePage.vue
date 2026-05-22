@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import TetrisGame from './arcade/TetrisGame.vue'
 import TwentyFortyEightGame from './arcade/TwentyFortyEightGame.vue'
 import PongGame from './arcade/PongGame.vue'
@@ -70,8 +70,27 @@ const games: ArcadeGame[] = [
 ]
 
 const fallbackGame = games[0]!
-const selectedId = ref<ArcadeGameId>('tetris')
+const selectedId = ref<ArcadeGameId | null>(null)
 const selectedGame = computed<ArcadeGame>(() => games.find((game) => game.id === selectedId.value) ?? fallbackGame)
+
+function openGame(id: ArcadeGameId) {
+  selectedId.value = id
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+function closeGame() {
+  selectedId.value = null
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+function handleKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape' && selectedId.value) {
+    closeGame()
+  }
+}
+
+onMounted(() => window.addEventListener('keydown', handleKeydown))
+onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
 </script>
 
 <template>
@@ -89,7 +108,7 @@ const selectedGame = computed<ArcadeGame>(() => games.find((game) => game.id ===
         type="button"
         class="arcade-tile"
         :class="{ 'is-active': game.id === selectedId }"
-        @click="selectedId = game.id"
+        @click="openGame(game.id)"
       >
         <span class="arcade-icon">{{ game.icon }}</span>
         <strong>{{ game.title }}</strong>
@@ -97,7 +116,8 @@ const selectedGame = computed<ArcadeGame>(() => games.find((game) => game.id ===
       </button>
     </section>
 
-    <section class="arcade-stage" :aria-label="`${selectedGame.title} game`">
+    <section v-if="selectedId" class="arcade-stage" :aria-label="`${selectedGame.title} game`">
+      <button type="button" class="back-button" @click="closeGame">Back to arcade</button>
       <div class="arcade-stage-copy">
         <span>{{ selectedGame.icon }}</span>
         <div>
@@ -202,8 +222,15 @@ const selectedGame = computed<ArcadeGame>(() => games.find((game) => game.id ===
 }
 
 .arcade-stage {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
   display: grid;
+  grid-template-rows: auto 1fr;
   gap: 1rem;
+  width: min(1280px, calc(100% - 2rem));
+  max-height: calc(100svh - 2rem);
+  margin: 1rem auto;
   padding: clamp(1rem, 2vw, 1.4rem);
   border: 1px solid rgba(255, 70, 47, 0.13);
   border-radius: 2rem;
@@ -211,7 +238,30 @@ const selectedGame = computed<ArcadeGame>(() => games.find((game) => game.id ===
     radial-gradient(circle at 18% 0%, rgba(255, 45, 29, 0.16), transparent 27rem),
     linear-gradient(145deg, rgba(18, 4, 4, 0.78), rgba(0, 0, 0, 0.6));
   box-shadow: inset 0 1px 0 rgba(255, 96, 70, 0.08), 0 2rem 7rem rgba(0, 0, 0, 0.42);
+  overflow: auto;
   backdrop-filter: blur(24px) saturate(1.18);
+}
+
+.arcade-stage::before {
+  position: fixed;
+  inset: -2rem;
+  z-index: -1;
+  content: "";
+  background: rgba(0, 0, 0, 0.78);
+  backdrop-filter: blur(18px);
+}
+
+.back-button {
+  justify-self: start;
+  min-height: 2.8rem;
+  padding: 0 1rem;
+  border: 1px solid rgba(255, 73, 48, 0.2);
+  border-radius: 999px;
+  background: rgba(255, 55, 35, 0.12);
+  color: #ffe2dc;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
 }
 
 .arcade-stage-copy {
@@ -251,7 +301,20 @@ const selectedGame = computed<ArcadeGame>(() => games.find((game) => game.id ===
   }
 
   .arcade-stage {
-    border-radius: 1.4rem;
+    inset: 0;
+    width: 100%;
+    max-height: 100svh;
+    margin: 0;
+    border-radius: 0;
+    overflow-x: hidden;
+  }
+
+  .arcade-stage-copy {
+    align-items: flex-start;
+  }
+
+  .arcade-stage-copy > span {
+    font-size: 2.2rem;
   }
 }
 
