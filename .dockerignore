@@ -10,5 +10,6 @@ test-results
 .env
 .env.*
 !.env.example
+!.npmrc
 Dockerfile
 docker-compose*.yml
