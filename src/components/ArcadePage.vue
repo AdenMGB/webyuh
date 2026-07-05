@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, inject, onBeforeUnmount, onMounted, ref } from 'vue'
 import TetrisGame from './arcade/TetrisGame.vue'
 import TwentyFortyEightGame from './arcade/TwentyFortyEightGame.vue'
 import PongGame from './arcade/PongGame.vue'
@@ -72,6 +72,7 @@ const games: ArcadeGame[] = [
 const fallbackGame = games[0]!
 const selectedId = ref<ArcadeGameId | null>(null)
 const selectedGame = computed<ArcadeGame>(() => games.find((game) => game.id === selectedId.value) ?? fallbackGame)
+const siteNavigate = inject<(event: MouseEvent, href: string) => void>('siteNavigate')
 
 function openGame(id: ArcadeGameId) {
   selectedId.value = id
@@ -95,6 +96,15 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
 
 <template>
   <main class="arcade-page">
+    <a
+      v-if="siteNavigate"
+      class="home-link"
+      href="/"
+      @click="siteNavigate($event, '/')"
+    >
+      ← Back to homepage
+    </a>
+
     <section class="arcade-hero">
       <p class="eyebrow">Redline arcade</p>
       <h1 class="arcade-title">Arcade</h1>
@@ -133,6 +143,19 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
 </template>
 
 <style scoped>
+.home-link {
+  display: inline-flex;
+  margin-bottom: 1.5rem;
+  color: rgba(245, 245, 247, 0.72);
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.home-link:hover {
+  color: #ffb3a2;
+}
+
 .arcade-page {
   width: min(1240px, calc(100% - 2rem));
   margin: 0 auto;
