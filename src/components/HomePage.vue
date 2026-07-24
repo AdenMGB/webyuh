@@ -119,7 +119,7 @@ const navClass = computed(() => (navScrolled.value ? 'nav--solid' : 'nav--clear'
           Adelaide developer volunteering IT skills on BetterSEQTA, DesQTA, and open projects that make everyday software kinder.
         </p>
         <div class="hero-cta reveal reveal-delay-3">
-          <a class="btn-accent" href="#work" @click="onNavigate($event, '#work')">See the work</a>
+          <a class="text-link" href="#work" @click="onNavigate($event, '#work')">See the work</a>
           <a
             class="text-link"
             href="https://github.com/AdenMGB"
