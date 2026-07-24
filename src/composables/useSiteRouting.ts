@@ -3,7 +3,10 @@ import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 export type SitePage = 'home' | 'arcade'
 
 function applyPageLayout(page: SitePage) {
-  document.body.style.overflow = page === 'arcade' ? 'auto' : 'hidden'
+  // Home is a long scrolling portfolio; arcade manages its own scroll.
+  document.body.style.overflow = 'auto'
+  document.body.classList.toggle('page-home', page === 'home')
+  document.body.classList.toggle('page-arcade', page === 'arcade')
 }
 
 export function useSiteRouting(onPageChange?: (page: SitePage) => void) {
@@ -52,6 +55,7 @@ export function useSiteRouting(onPageChange?: (page: SitePage) => void) {
   onBeforeUnmount(() => {
     window.removeEventListener('popstate', syncPage)
     document.body.style.overflow = ''
+    document.body.classList.remove('page-home', 'page-arcade')
   })
 
   return { currentPage, navigate }

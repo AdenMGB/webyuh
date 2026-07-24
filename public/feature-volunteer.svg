@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" role="img" aria-label="Community silhouette on gradient">
+  <defs>
+    <linearGradient id="g3" x1="20%" y1="0%" x2="80%" y2="100%">
+      <stop offset="0%" stop-color="#e8e9ff"/>
+      <stop offset="35%" stop-color="#8aa8e8"/>
+      <stop offset="100%" stop-color="#166070"/>
+    </linearGradient>
+  </defs>
+  <rect width="640" height="480" rx="40" fill="url(#g3)"/>
+  <g fill="#141414" opacity="0.92">
+    <ellipse cx="250" cy="180" rx="36" ry="40"/>
+    <path d="M180 340c8-70 35-110 70-110s62 40 70 110H180z"/>
+    <ellipse cx="390" cy="170" rx="36" ry="40"/>
+    <path d="M320 340c8-70 35-110 70-110s62 40 70 110H320z"/>
+    <ellipse cx="320" cy="220" rx="40" ry="44"/>
+    <path d="M240 400c10-80 40-125 80-125s70 45 80 125H240z"/>
+  </g>
+</svg>

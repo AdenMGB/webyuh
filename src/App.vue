@@ -1,53 +1,46 @@
 <script setup lang="ts">
-import { provide } from 'vue'
+import { provide, watchEffect } from 'vue'
 import { Transition } from 'vue'
 import ArcadePage from './components/ArcadePage.vue'
-import RetroHomePage from './components/RetroHomePage.vue'
+import HomePage from './components/HomePage.vue'
 import { useSiteRouting } from './composables/useSiteRouting'
 
 const { currentPage, navigate } = useSiteRouting()
 
 provide('siteNavigate', navigate)
+
+watchEffect(() => {
+  document.body.classList.toggle('page-home', currentPage.value === 'home')
+  document.body.classList.toggle('page-arcade', currentPage.value === 'arcade')
+})
 </script>
 
 <template>
-  <div class="site-root">
+  <div class="site-root" :class="currentPage === 'home' ? 'site-root--home' : 'site-root--arcade'">
     <Transition name="page-shift" mode="out-in">
-      <RetroHomePage v-if="currentPage === 'home'" key="home" :on-navigate="navigate" />
+      <HomePage v-if="currentPage === 'home'" key="home" :on-navigate="navigate" />
       <ArcadePage v-else key="arcade" />
     </Transition>
   </div>
 </template>
 
 <style>
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-}
-
-html,
-body,
-#app,
-.site-root {
-  width: 100%;
-  height: 100%;
-  margin: 0;
-}
-
-html {
-  background: #000;
-}
-
-body {
-  overflow: hidden;
-  color: #fff;
-  background: #000;
-}
-
 .site-root {
   position: relative;
+  width: 100%;
+  min-height: 100%;
+}
+
+.site-root--home {
+  overflow: visible;
+  background: var(--surface-page-canvas);
+}
+
+.site-root--arcade {
   overflow: hidden;
+  height: 100%;
+  color: #fff;
+  background: #000;
 }
 
 .page-shift-enter-active,
