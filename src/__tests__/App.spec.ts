@@ -4,11 +4,11 @@ import { mount } from '@vue/test-utils'
 import App from '../App.vue'
 
 describe('App', () => {
-  it('renders the retro AdenMGB homepage', () => {
+  it('renders the AdenMGB homepage', () => {
     const wrapper = mount(App)
-    expect(wrapper.text()).toContain('Welcome To My Website')
-    expect(wrapper.text()).toContain('AdenMGB')
-    expect(wrapper.text()).toContain('My GitHub')
-    expect(wrapper.text()).toContain('My Arcade')
+    expect(wrapper.text()).toContain('adenmgb')
+    expect(wrapper.text()).toContain('Building better tools for students')
+    expect(wrapper.text()).toContain('BetterSEQTA+')
+    expect(wrapper.text()).toContain('Arcade')
   })
 })
