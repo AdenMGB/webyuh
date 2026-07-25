@@ -14,14 +14,25 @@ import {
   Euler,
   MathUtils,
   Mesh,
+  MeshPhysicalMaterial,
   MeshStandardMaterial,
   ShaderMaterial,
   Vector2,
   Vector3,
 } from 'three'
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js'
-import { onBeforeUnmount, shallowRef } from 'vue'
+import { computed, onBeforeUnmount, shallowRef } from 'vue'
+import type { PrismProfile } from '../composables/prismCapability'
 import { pointerTarget, scrollProgress } from '../composables/motionField'
+
+const props = withDefaults(
+  defineProps<{
+    profile?: PrismProfile
+  }>(),
+  { profile: 'full' },
+)
+
+const isCompatible = computed(() => props.profile === 'compatible')
 
 const glassColor = '#fffdf9'
 const fboBackground = new Color('#101010')
@@ -70,8 +81,8 @@ const cubes = [
   },
 ]
 
-/** Softly rounded: high segments + generous corner radius */
-const glassArgs = [1, 1, 1, 20, 0.36] as [number, number, number, number, number]
+const detail = props.profile === 'compatible' ? 8 : 20
+const glassArgs = [1, 1, 1, detail, 0.36] as [number, number, number, number, number]
 const coreScale = new Vector3(0.5, 0.5, 0.5)
 const rimScale = new Vector3(1.03, 1.03, 1.03)
 
@@ -89,9 +100,29 @@ const aberration = {
   modulationOffset: 0.4,
 }
 
-const rimGeometry = new RoundedBoxGeometry(1, 1, 1, 20, 0.36)
-const coreGeometry = new RoundedBoxGeometry(1, 1, 1, 16, 0.32)
+const rimGeometry = new RoundedBoxGeometry(1, 1, 1, detail, 0.36)
+const coreGeometry = new RoundedBoxGeometry(1, 1, 1, Math.max(4, detail - 2), 0.32)
 const coreMaterial = new MeshStandardMaterial({ color: '#000000', roughness: 1, metalness: 0 })
+
+/**
+ * Compatible glass: real PBR transmission + HDR env reflections, without the
+ * MeshTransmissionMaterial half-float FBO / ReadPixels path that wedges mobile GPUs.
+ */
+const compatibleGlassMaterial = new MeshPhysicalMaterial({
+  color: glassColor,
+  transmission: 1,
+  thickness: 0.55,
+  roughness: 0.04,
+  metalness: 0,
+  ior: 1.5,
+  clearcoat: 0.55,
+  clearcoatRoughness: 0.08,
+  transparent: true,
+  opacity: 1,
+  attenuationColor: new Color(glassColor),
+  attenuationDistance: 6,
+  envMapIntensity: 1.1,
+})
 
 const rimMaterial = new ShaderMaterial({
   uniforms: {
@@ -155,6 +186,14 @@ const coreMeshes = cubes.map((cube) => {
   return mesh
 })
 
+const compatibleGlassMeshes = cubes.map((cube) => {
+  const mesh = new Mesh(rimGeometry, compatibleGlassMaterial)
+  mesh.position.copy(cube.position)
+  mesh.rotation.copy(cube.rotation)
+  mesh.scale.copy(cube.scale)
+  return mesh
+})
+
 const prefersReducedMotion =
   typeof window !== 'undefined' &&
   typeof window.matchMedia === 'function' &&
@@ -210,8 +249,10 @@ onBeforeRender(({ delta, elapsed }) => {
     camera.value.lookAt(px * 0.15, -py * 0.1, 0)
   }
 
-  const fringe = 0.0007 + Math.hypot(px, py) * 0.0006
-  aberrationOffset.set(fringe, fringe * 0.9)
+  if (!isCompatible.value) {
+    const fringe = 0.0007 + Math.hypot(px, py) * 0.0006
+    aberrationOffset.set(fringe, fringe * 0.9)
+  }
 })
 
 onBeforeUnmount(() => {
@@ -219,84 +260,107 @@ onBeforeUnmount(() => {
   coreGeometry.dispose()
   rimMaterial.dispose()
   coreMaterial.dispose()
+  compatibleGlassMaterial.dispose()
 })
 </script>
 
 <template>
   <TresPerspectiveCamera ref="camera" :position="cameraPosition" :fov="28" />
 
+  <!-- HDR env on both profiles — critical for glass reflections on mobile -->
   <Suspense>
-    <Environment preset="city" :environment-intensity="0.7" />
+    <Environment
+      preset="city"
+      :environment-intensity="isCompatible ? 1 : 0.7"
+    />
   </Suspense>
 
-  <TresAmbientLight :intensity="0.22" color="#fffdf9" />
-  <TresDirectionalLight :position="keyLightPosition" :intensity="0.7" color="#fffdf9" />
-  <TresDirectionalLight :position="fillLightPosition" :intensity="0.3" color="#6f879c" />
-  <!-- Soft prism accents — low intensity so grazing angles don't blow out -->
+  <TresAmbientLight :intensity="isCompatible ? 0.3 : 0.22" color="#fffdf9" />
+  <TresDirectionalLight
+    :position="keyLightPosition"
+    :intensity="isCompatible ? 0.9 : 0.7"
+    color="#fffdf9"
+  />
+  <TresDirectionalLight
+    :position="fillLightPosition"
+    :intensity="isCompatible ? 0.4 : 0.3"
+    color="#6f879c"
+  />
   <TresPointLight
     color="#ff2a2a"
-    :intensity="1.6"
+    :intensity="isCompatible ? 2 : 1.6"
     :distance="10"
     :decay="2"
     :position="redLightPosition"
   />
   <TresPointLight
     color="#2a7fff"
-    :intensity="1.6"
+    :intensity="isCompatible ? 2 : 1.6"
     :distance="10"
     :decay="2"
     :position="cyanLightPosition"
   />
   <TresPointLight
     color="#2aff2a"
-    :intensity="1.2"
+    :intensity="isCompatible ? 1.5 : 1.2"
     :distance="10"
     :decay="2"
     :position="limeLightPosition"
   />
 
   <TresGroup ref="group">
-    <!-- Soft black cores -->
     <primitive v-for="(mesh, index) in coreMeshes" :key="`core-${index}`" :object="mesh" />
 
-    <!-- Rounded transmission glass -->
-    <RoundedBox
-      v-for="(cube, index) in cubes"
-      :key="`glass-${index}`"
-      :args="glassArgs"
-      :position="cube.position"
-      :rotation="cube.rotation"
-      :scale="cube.scale"
-    >
-      <MeshTransmissionMaterial
-        :color="glassColor"
-        :background="fboBackground"
-        :transmission="1"
-        :thickness="0.55"
-        :backside="true"
-        :backside-thickness="0.22"
-        :chromatic-aberration="0.1"
-        :anisotropic-blur="0.14"
-        :roughness="0.04"
-        :ior="1.5"
-        :clearcoat="0.55"
-        :clearcoat-roughness="0.08"
-        :attenuation-distance="6"
-        :attenuation-color="glassColor"
-        :resolution="1024"
-        :backside-resolution="512"
-        :samples="12"
-        :distortion="0.08"
-        :distortion-scale="0.2"
-        :temporal-distortion="0.1"
-      />
-    </RoundedBox>
+    <template v-if="!isCompatible">
+      <RoundedBox
+        v-for="(cube, index) in cubes"
+        :key="`glass-${index}`"
+        :args="glassArgs"
+        :position="cube.position"
+        :rotation="cube.rotation"
+        :scale="cube.scale"
+      >
+        <MeshTransmissionMaterial
+          :color="glassColor"
+          :background="fboBackground"
+          :transmission="1"
+          :thickness="0.55"
+          :backside="true"
+          :backside-thickness="0.22"
+          :chromatic-aberration="0.1"
+          :anisotropic-blur="0.14"
+          :roughness="0.04"
+          :ior="1.5"
+          :clearcoat="0.55"
+          :clearcoat-roughness="0.08"
+          :attenuation-distance="6"
+          :attenuation-color="glassColor"
+          :resolution="1024"
+          :backside-resolution="512"
+          :samples="12"
+          :distortion="0.08"
+          :distortion-scale="0.2"
+          :temporal-distortion="0.1"
+        />
+      </RoundedBox>
+    </template>
 
-    <!-- Prismatic fresnel rim shader -->
+    <template v-else>
+      <primitive
+        v-for="(mesh, index) in compatibleGlassMeshes"
+        :key="`compatible-glass-${index}`"
+        :object="mesh"
+      />
+    </template>
+
     <primitive v-for="(mesh, index) in rimMeshes" :key="`rim-${index}`" :object="mesh" />
   </TresGroup>
 
-  <Suspense>
+  <!--
+    Post stack stays desktop-only. On mobile, EffectComposer (even UnsignedByte bloom)
+    fringes transparent glass and reintroduces GPU sync stalls.
+  -->
+  <Suspense v-if="!isCompatible">
     <EffectComposerPmndrs>
       <BloomPmndrs
         :intensity="0.28"
