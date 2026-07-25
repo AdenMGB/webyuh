@@ -225,12 +225,16 @@ onBeforeRender(({ delta, elapsed }) => {
   for (let i = 0; i < cubeStates.length; i += 1) {
     const cur = cubeStates[i]!
     const next = targetPoses[i]!
-    // Slower pose damping = calmer morphs
+    // Keep position morphs calm, but let cubes keep tumbling.
     cur.position.lerp(next.position, 1 - Math.exp(-3.8 * delta))
     cur.scale.lerp(next.scale, 1 - Math.exp(-3.8 * delta))
-    cur.rotation.x = MathUtils.damp(cur.rotation.x, next.rotation.x, 3.8, delta)
-    cur.rotation.y = MathUtils.damp(cur.rotation.y, next.rotation.y, 3.8, delta)
-    cur.rotation.z = MathUtils.damp(cur.rotation.z, next.rotation.z, 3.8, delta)
+    const spin = elapsed * (0.35 + i * 0.08)
+    const targetRx = next.rotation.x + Math.sin(spin * 0.7 + i) * 0.35
+    const targetRy = next.rotation.y + spin * 0.55
+    const targetRz = next.rotation.z + Math.cos(spin * 0.55 + i * 0.4) * 0.22
+    cur.rotation.x = MathUtils.damp(cur.rotation.x, targetRx, 4.5, delta)
+    cur.rotation.y = MathUtils.damp(cur.rotation.y, targetRy, 4.5, delta)
+    cur.rotation.z = MathUtils.damp(cur.rotation.z, targetRz, 4.5, delta)
   }
   applyPoseToMeshes()
 
@@ -238,8 +242,8 @@ onBeforeRender(({ delta, elapsed }) => {
   const py = smoothedPointerY
 
   if (prefersReducedMotion) {
-    group.value.rotation.y = 0.28
-    group.value.rotation.x = 0.1
+    group.value.rotation.y = 0.35
+    group.value.rotation.x = 0.12
     group.value.rotation.z = 0
     group.value.position.x = 0
     group.value.position.y = 0
@@ -247,20 +251,20 @@ onBeforeRender(({ delta, elapsed }) => {
     return
   }
 
-  // Very subtle group drift — formation shapes do the storytelling.
-  const idle = elapsed * 0.035
-  group.value.rotation.y = 0.28 + idle + px * 0.08
-  group.value.rotation.x = 0.1 + Math.sin(elapsed * 0.08) * 0.02 + py * 0.05
-  group.value.rotation.z = Math.cos(elapsed * 0.07) * 0.012 + px * 0.015
-  group.value.position.x = px * 0.06
-  group.value.position.y = py * -0.04
+  // Stronger continuous rotation; positions stay the subtle formation path.
+  const idle = elapsed * 0.14
+  group.value.rotation.y = idle + px * 0.45
+  group.value.rotation.x = Math.sin(elapsed * 0.13) * 0.1 + py * 0.28
+  group.value.rotation.z = Math.cos(elapsed * 0.1) * 0.05 + px * 0.08
+  group.value.position.x = px * 0.12
+  group.value.position.y = py * -0.08
   group.value.scale.setScalar(1)
 
   if (camera.value) {
-    camera.value.position.x = MathUtils.damp(camera.value.position.x, px * 0.05, 1.8, delta)
-    camera.value.position.y = MathUtils.damp(camera.value.position.y, 0.15 - py * 0.04, 1.8, delta)
-    camera.value.position.z = MathUtils.damp(camera.value.position.z, 6.8, 1.8, delta)
-    camera.value.lookAt(px * 0.04, -py * 0.03, 0)
+    camera.value.position.x = MathUtils.damp(camera.value.position.x, px * 0.12, 2.2, delta)
+    camera.value.position.y = MathUtils.damp(camera.value.position.y, 0.15 - py * 0.08, 2.2, delta)
+    camera.value.position.z = MathUtils.damp(camera.value.position.z, 6.8, 2.0, delta)
+    camera.value.lookAt(px * 0.08, -py * 0.05, 0)
   }
 
   if (!isCompatible.value) {
