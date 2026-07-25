@@ -1,30 +1,19 @@
 <script setup lang="ts">
 import { defineAsyncComponent, onMounted, ref } from 'vue'
-import {
-  resolvePrismCapability,
-  type PrismQuality,
-} from '../composables/prismCapability'
+import { resolvePrismCapability } from '../composables/prismCapability'
 
 const PrismCanvas = defineAsyncComponent(() => import('./PrismCanvas.vue'))
 
 const mode = ref<'pending' | 'webgl' | 'fallback'>('pending')
-const quality = ref<PrismQuality>('high')
 
 onMounted(() => {
-  const capability = resolvePrismCapability()
-  mode.value = capability.mode
-  quality.value = capability.quality
+  mode.value = resolvePrismCapability().mode
 })
 </script>
 
 <template>
-  <div
-    class="prism"
-    aria-hidden="true"
-    :data-prism-mode="mode"
-    :data-prism-quality="quality"
-  >
-    <PrismCanvas v-if="mode === 'webgl'" :quality="quality" />
+  <div class="prism" aria-hidden="true" :data-prism-mode="mode">
+    <PrismCanvas v-if="mode === 'webgl'" />
     <div v-else class="prism__fallback">
       <span class="prism__orb prism__orb--a" />
       <span class="prism__orb prism__orb--b" />
