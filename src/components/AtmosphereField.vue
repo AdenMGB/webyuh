@@ -39,9 +39,8 @@
       0
     )
     scale(1.08);
-  filter: blur(calc(18px + var(--motion-scroll, 0) * 22px));
-  opacity: calc(0.85 - var(--motion-scroll, 0) * 0.25);
-  will-change: transform, filter, opacity;
+  opacity: calc(0.9 - var(--motion-scroll, 0) * 0.2);
+  will-change: transform, opacity;
 }
 
 .atmosphere__halo {

@@ -9,11 +9,18 @@ export const pointerTarget = reactive({ x: 0, y: 0 })
 /** Lerped pointer used for silky vivid-style motion. */
 export const smoothPointer = reactive({ x: 0, y: 0 })
 
-/** Lerped scroll progress for background / blur easing. */
+/** Lerped scroll progress for background / formation easing. */
 export const smoothScroll = ref(0)
+
+/** Page-load assemble progress in [0, 1]. */
+export const introProgress = ref(0)
 
 /** True once device orientation is driving motion. */
 export const gyroActive = ref(false)
+
+export function setIntroProgress(value: number) {
+  introProgress.value = Math.min(1, Math.max(0, value))
+}
 
 export function setScrollProgress(value: number) {
   scrollProgress.value = Math.min(1, Math.max(0, value))
@@ -98,7 +105,6 @@ export function tickMotion(dt = 1 / 60) {
  * Apply vivid/locomotive-style parallax to `[data-parallax]` nodes.
  * `data-parallax` = scroll speed factor (e.g. 0.18).
  * Optional `data-parallax-mouse` = cursor/gyro shift in px at full pointer.
- * Optional `data-parallax-blur` = max blur (px) when far from viewport center.
  * Optional `data-parallax-scale` = extra scale amplitude (e.g. 0.04).
  */
 export function updateParallaxLayers(root: ParentNode = document) {
@@ -108,7 +114,6 @@ export function updateParallaxLayers(root: ParentNode = document) {
   nodes.forEach((node) => {
     const speed = Number(node.dataset.parallax || 0)
     const mouseAmp = Number(node.dataset.parallaxMouse || 0)
-    const blurAmp = Number(node.dataset.parallaxBlur || 0)
     const scaleAmp = Number(node.dataset.parallaxScale || 0)
     const rect = node.getBoundingClientRect()
     const centerOffset = (rect.top + rect.height / 2 - vh / 2) / vh
@@ -117,16 +122,13 @@ export function updateParallaxLayers(root: ParentNode = document) {
     const mouseX = smoothPointer.x * mouseAmp
     const mouseY = smoothPointer.y * mouseAmp * 0.65
     const scale = 1 + (0.5 - Math.min(1, absOffset)) * scaleAmp
-    const blur = blurAmp > 0 ? absOffset * blurAmp : 0
 
     node.style.transform = `translate3d(${mouseX.toFixed(2)}px, ${(scrollShift + mouseY).toFixed(2)}px, 0) scale(${scale.toFixed(4)})`
-    if (blurAmp > 0) {
-      node.style.filter = blur > 0.05 ? `blur(${blur.toFixed(2)}px)` : 'none'
-    }
+    node.style.filter = 'none'
   })
 }
 
-/** Drive CSS custom properties used by atmosphere / prism depth. */
+/** Drive CSS custom properties used by atmosphere drift. */
 export function updateAtmosphereVars(root: HTMLElement) {
   const px = smoothPointer.x
   const py = smoothPointer.y
@@ -134,10 +136,7 @@ export function updateAtmosphereVars(root: HTMLElement) {
   root.style.setProperty('--motion-x', px.toFixed(4))
   root.style.setProperty('--motion-y', py.toFixed(4))
   root.style.setProperty('--motion-scroll', scroll.toFixed(4))
-  root.style.setProperty('--motion-scroll-y', `${(scroll * -18).toFixed(2)}vh`)
-  root.style.setProperty('--prism-depth-blur', `${(scroll * 10).toFixed(2)}px`)
-  root.style.setProperty('--prism-depth-opacity', `${(1 - scroll * 0.45).toFixed(3)}`)
-  root.style.setProperty('--prism-depth-shift', `${(scroll * 8 + py * 2).toFixed(2)}vh`)
+  root.style.setProperty('--motion-scroll-y', `${(scroll * -12).toFixed(2)}vh`)
 }
 
 /**

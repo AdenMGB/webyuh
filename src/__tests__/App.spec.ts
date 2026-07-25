@@ -9,6 +9,7 @@ const mountOptions = {
       PrismArtifact: true,
       AtmosphereField: true,
       SoftCursor: true,
+      PageIntro: true,
     },
   },
 }

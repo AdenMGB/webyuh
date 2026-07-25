@@ -122,7 +122,6 @@ onBeforeUnmount(() => {
     height 0.35s var(--ease-focus),
     background-color 0.35s var(--ease-focus),
     border-color 0.35s var(--ease-focus);
-  backdrop-filter: blur(2px);
 }
 
 .soft-cursor--active .soft-cursor__ring {

@@ -11,7 +11,6 @@ import {
   AdditiveBlending,
   Color,
   DoubleSide,
-  Euler,
   MathUtils,
   Mesh,
   MeshPhysicalMaterial,
@@ -21,9 +20,14 @@ import {
   Vector3,
 } from 'three'
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js'
-import { computed, onBeforeUnmount, shallowRef } from 'vue'
+import { computed, onBeforeUnmount, reactive, shallowRef } from 'vue'
 import type { PrismProfile } from '../composables/prismCapability'
-import { pointerTarget, scrollProgress } from '../composables/motionField'
+import {
+  createPoseBuffer,
+  sampleFormation,
+  sampleIntro,
+} from '../composables/prismFormations'
+import { introProgress, pointerTarget, scrollProgress } from '../composables/motionField'
 
 const props = withDefaults(
   defineProps<{
@@ -48,38 +52,22 @@ const camera = shallowRef<{
   lookAt: (x: number, y: number, z: number) => void
 } | null>(null)
 
-const cubes = [
-  {
-    position: new Vector3(0.1, 0.05, 0.08),
-    scale: new Vector3(0.95, 0.95, 0.95),
-    rotation: new Euler(0.35, 0.55, 0.12),
-  },
-  {
-    position: new Vector3(-0.85, 0.4, -0.25),
-    scale: new Vector3(0.58, 0.58, 0.58),
-    rotation: new Euler(0.15, -0.45, 0.28),
-  },
-  {
-    position: new Vector3(0.8, 0.28, -0.4),
-    scale: new Vector3(0.54, 0.54, 0.54),
-    rotation: new Euler(-0.25, 0.7, -0.15),
-  },
-  {
-    position: new Vector3(-0.28, -0.65, 0.15),
-    scale: new Vector3(0.72, 0.72, 0.72),
-    rotation: new Euler(0.55, 0.2, -0.35),
-  },
-  {
-    position: new Vector3(0.62, -0.42, 0.48),
-    scale: new Vector3(0.46, 0.46, 0.46),
-    rotation: new Euler(0.1, -0.8, 0.4),
-  },
-  {
-    position: new Vector3(-0.55, -0.12, 0.62),
-    scale: new Vector3(0.4, 0.4, 0.4),
-    rotation: new Euler(-0.4, 0.35, 0.55),
-  },
-]
+/** Live cube poses for imperative meshes + sampling. */
+const cubeStates = createPoseBuffer(6)
+const targetPoses = createPoseBuffer(6)
+
+/** Reactive numeric poses so Tres RoundedBox props actually update each frame. */
+const cubeUi = reactive(
+  Array.from({ length: 6 }, () => ({
+    x: 0,
+    y: 0,
+    z: 0,
+    rx: 0,
+    ry: 0,
+    rz: 0,
+    s: 1,
+  })),
+)
 
 const detail = props.profile === 'compatible' ? 8 : 20
 const glassArgs = [1, 1, 1, detail, 0.36] as [number, number, number, number, number]
@@ -104,10 +92,6 @@ const rimGeometry = new RoundedBoxGeometry(1, 1, 1, detail, 0.36)
 const coreGeometry = new RoundedBoxGeometry(1, 1, 1, Math.max(4, detail - 2), 0.32)
 const coreMaterial = new MeshStandardMaterial({ color: '#000000', roughness: 1, metalness: 0 })
 
-/**
- * Compatible glass: real PBR transmission + HDR env reflections, without the
- * MeshTransmissionMaterial half-float FBO / ReadPixels path that wedges mobile GPUs.
- */
 const compatibleGlassMaterial = new MeshPhysicalMaterial({
   color: glassColor,
   transmission: 1,
@@ -170,29 +154,9 @@ const rimMaterial = new ShaderMaterial({
   toneMapped: false,
 })
 
-const rimMeshes = cubes.map((cube) => {
-  const mesh = new Mesh(rimGeometry, rimMaterial)
-  mesh.position.copy(cube.position)
-  mesh.rotation.copy(cube.rotation)
-  mesh.scale.copy(cube.scale).multiply(rimScale)
-  return mesh
-})
-
-const coreMeshes = cubes.map((cube) => {
-  const mesh = new Mesh(coreGeometry, coreMaterial)
-  mesh.position.copy(cube.position)
-  mesh.rotation.copy(cube.rotation)
-  mesh.scale.copy(cube.scale).multiply(coreScale)
-  return mesh
-})
-
-const compatibleGlassMeshes = cubes.map((cube) => {
-  const mesh = new Mesh(rimGeometry, compatibleGlassMaterial)
-  mesh.position.copy(cube.position)
-  mesh.rotation.copy(cube.rotation)
-  mesh.scale.copy(cube.scale)
-  return mesh
-})
+const rimMeshes = cubeStates.map(() => new Mesh(rimGeometry, rimMaterial))
+const coreMeshes = cubeStates.map(() => new Mesh(coreGeometry, coreMaterial))
+const compatibleGlassMeshes = cubeStates.map(() => new Mesh(rimGeometry, compatibleGlassMaterial))
 
 const prefersReducedMotion =
   typeof window !== 'undefined' &&
@@ -202,6 +166,41 @@ const prefersReducedMotion =
 let smoothedScroll = 0
 let smoothedPointerX = 0
 let smoothedPointerY = 0
+let smoothedIntro = 0
+
+function applyPoseToMeshes() {
+  for (let i = 0; i < cubeStates.length; i += 1) {
+    const pose = cubeStates[i]!
+    const rim = rimMeshes[i]!
+    const core = coreMeshes[i]!
+    const glass = compatibleGlassMeshes[i]!
+    const ui = cubeUi[i]!
+
+    rim.position.copy(pose.position)
+    rim.rotation.copy(pose.rotation)
+    rim.scale.copy(pose.scale).multiply(rimScale)
+
+    core.position.copy(pose.position)
+    core.rotation.copy(pose.rotation)
+    core.scale.copy(pose.scale).multiply(coreScale)
+
+    glass.position.copy(pose.position)
+    glass.rotation.copy(pose.rotation)
+    glass.scale.copy(pose.scale)
+
+    ui.x = pose.position.x
+    ui.y = pose.position.y
+    ui.z = pose.position.z
+    ui.rx = pose.rotation.x
+    ui.ry = pose.rotation.y
+    ui.rz = pose.rotation.z
+    ui.s = pose.scale.x
+  }
+}
+
+// Seed collapsed intro pose so first frame isn't a pop.
+sampleIntro(0, cubeStates)
+applyPoseToMeshes()
 
 const { onBeforeRender } = useLoop()
 
@@ -211,13 +210,34 @@ onBeforeRender(({ delta, elapsed }) => {
 
   if (!group.value) return
 
-  smoothedScroll = MathUtils.damp(smoothedScroll, scrollProgress.value, 4, delta)
+  smoothedScroll = MathUtils.damp(smoothedScroll, scrollProgress.value, 3.4, delta)
   smoothedPointerX = MathUtils.damp(smoothedPointerX, pointerTarget.x, 3.2, delta)
   smoothedPointerY = MathUtils.damp(smoothedPointerY, pointerTarget.y, 3.2, delta)
+  smoothedIntro = MathUtils.damp(smoothedIntro, introProgress.value, 4.2, delta)
+
+  if (smoothedIntro < 0.999) {
+    sampleIntro(smoothedIntro, targetPoses)
+  } else {
+    sampleFormation(smoothedScroll, targetPoses)
+  }
+
+  for (let i = 0; i < cubeStates.length; i += 1) {
+    const cur = cubeStates[i]!
+    const next = targetPoses[i]!
+    cur.position.lerp(next.position, 1 - Math.exp(-6.5 * delta))
+    cur.scale.lerp(next.scale, 1 - Math.exp(-6.5 * delta))
+    cur.rotation.x = MathUtils.damp(cur.rotation.x, next.rotation.x, 6.5, delta)
+    cur.rotation.y = MathUtils.damp(cur.rotation.y, next.rotation.y, 6.5, delta)
+    cur.rotation.z = MathUtils.damp(cur.rotation.z, next.rotation.z, 6.5, delta)
+  }
+  applyPoseToMeshes()
+
+  const px = smoothedPointerX
+  const py = smoothedPointerY
 
   if (prefersReducedMotion) {
-    group.value.rotation.y = smoothedScroll * Math.PI * 0.6
-    group.value.rotation.x = 0.15
+    group.value.rotation.y = 0.35
+    group.value.rotation.x = 0.12
     group.value.rotation.z = 0
     group.value.position.x = 0
     group.value.position.y = 0
@@ -225,28 +245,31 @@ onBeforeRender(({ delta, elapsed }) => {
     return
   }
 
-  const idle = elapsed * 0.12
-  const px = smoothedPointerX
-  const py = smoothedPointerY
-
-  group.value.rotation.y = idle + smoothedScroll * Math.PI * 1.35 + px * 0.55
-  group.value.rotation.x =
-    Math.sin(elapsed * 0.14) * 0.1 + smoothedScroll * 0.45 + py * 0.4
-  group.value.rotation.z = Math.cos(elapsed * 0.11) * 0.05 - smoothedScroll * 0.2 + px * 0.12
-
-  group.value.position.x = px * 0.45
-  group.value.position.y = MathUtils.lerp(0.15, -0.55, smoothedScroll) - py * 0.28
-  group.value.scale.setScalar(MathUtils.lerp(1, 0.78, smoothedScroll))
+  // Keep group motion gentle so formation shapes stay readable (vivid-like).
+  const idle = elapsed * 0.08
+  group.value.rotation.y = idle + px * 0.28
+  group.value.rotation.x = Math.sin(elapsed * 0.11) * 0.06 + py * 0.18
+  group.value.rotation.z = Math.cos(elapsed * 0.09) * 0.03 + px * 0.05
+  group.value.position.x = px * 0.22
+  group.value.position.y = MathUtils.lerp(0.1, -0.2, smoothedScroll) - py * 0.14
+  group.value.scale.setScalar(MathUtils.lerp(1, 0.92, smoothedScroll))
 
   if (camera.value) {
-    camera.value.position.x = MathUtils.damp(camera.value.position.x, px * 0.22, 2.4, delta)
+    const closeBoost = MathUtils.smoothstep(smoothedScroll, 0.08, 0.28)
+    const camZ = MathUtils.lerp(
+      6.8,
+      5.6,
+      closeBoost * (1 - MathUtils.smoothstep(smoothedScroll, 0.35, 0.55)),
+    )
+    camera.value.position.x = MathUtils.damp(camera.value.position.x, px * 0.18, 2.4, delta)
     camera.value.position.y = MathUtils.damp(
       camera.value.position.y,
-      0.15 - py * 0.16,
+      0.15 - py * 0.12,
       2.4,
       delta,
     )
-    camera.value.lookAt(px * 0.15, -py * 0.1, 0)
+    camera.value.position.z = MathUtils.damp(camera.value.position.z, camZ, 2.2, delta)
+    camera.value.lookAt(px * 0.12, -py * 0.08, 0)
   }
 
   if (!isCompatible.value) {
@@ -267,7 +290,6 @@ onBeforeUnmount(() => {
 <template>
   <TresPerspectiveCamera ref="camera" :position="cameraPosition" :fov="28" />
 
-  <!-- HDR env on both profiles — critical for glass reflections on mobile -->
   <Suspense>
     <Environment
       preset="city"
@@ -313,12 +335,12 @@ onBeforeUnmount(() => {
 
     <template v-if="!isCompatible">
       <RoundedBox
-        v-for="(cube, index) in cubes"
+        v-for="(cube, index) in cubeUi"
         :key="`glass-${index}`"
         :args="glassArgs"
-        :position="cube.position"
-        :rotation="cube.rotation"
-        :scale="cube.scale"
+        :position="[cube.x, cube.y, cube.z]"
+        :rotation="[cube.rx, cube.ry, cube.rz]"
+        :scale="[cube.s, cube.s, cube.s]"
       >
         <MeshTransmissionMaterial
           :color="glassColor"
@@ -327,8 +349,8 @@ onBeforeUnmount(() => {
           :thickness="0.55"
           :backside="true"
           :backside-thickness="0.22"
-          :chromatic-aberration="0.1"
-          :anisotropic-blur="0.14"
+          :chromatic-aberration="0.08"
+          :anisotropic-blur="0.04"
           :roughness="0.04"
           :ior="1.5"
           :clearcoat="0.55"
@@ -338,9 +360,9 @@ onBeforeUnmount(() => {
           :resolution="1024"
           :backside-resolution="512"
           :samples="12"
-          :distortion="0.08"
-          :distortion-scale="0.2"
-          :temporal-distortion="0.1"
+          :distortion="0.04"
+          :distortion-scale="0.12"
+          :temporal-distortion="0"
         />
       </RoundedBox>
     </template>
@@ -356,10 +378,6 @@ onBeforeUnmount(() => {
     <primitive v-for="(mesh, index) in rimMeshes" :key="`rim-${index}`" :object="mesh" />
   </TresGroup>
 
-  <!--
-    Post stack stays desktop-only. On mobile, EffectComposer (even UnsignedByte bloom)
-    fringes transparent glass and reintroduces GPU sync stalls.
-  -->
   <Suspense v-if="!isCompatible">
     <EffectComposerPmndrs>
       <BloomPmndrs
