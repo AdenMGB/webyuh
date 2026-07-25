@@ -1,19 +1,43 @@
 <script setup lang="ts">
-import { defineAsyncComponent, onMounted, ref } from 'vue'
-import { resolvePrismCapability } from '../composables/prismCapability'
+import { defineAsyncComponent, onBeforeUnmount, onMounted, ref } from 'vue'
+import {
+  resolvePrismCapability,
+  type PrismProfile,
+} from '../composables/prismCapability'
 
 const PrismCanvas = defineAsyncComponent(() => import('./PrismCanvas.vue'))
 
+const prismRoot = ref<HTMLElement | null>(null)
 const mode = ref<'pending' | 'webgl' | 'fallback'>('pending')
+const profile = ref<PrismProfile>('full')
+
+function onContextLost(event: Event) {
+  event.preventDefault()
+  // Dead black canvas is worse than the CSS atmosphere fallback.
+  mode.value = 'fallback'
+}
 
 onMounted(() => {
-  mode.value = resolvePrismCapability().mode
+  const capability = resolvePrismCapability()
+  mode.value = capability.mode
+  profile.value = capability.profile
+  prismRoot.value?.addEventListener('webglcontextlost', onContextLost, true)
+})
+
+onBeforeUnmount(() => {
+  prismRoot.value?.removeEventListener('webglcontextlost', onContextLost, true)
 })
 </script>
 
 <template>
-  <div class="prism" aria-hidden="true" :data-prism-mode="mode">
-    <PrismCanvas v-if="mode === 'webgl'" />
+  <div
+    ref="prismRoot"
+    class="prism"
+    aria-hidden="true"
+    :data-prism-mode="mode"
+    :data-prism-profile="profile"
+  >
+    <PrismCanvas v-if="mode === 'webgl'" :profile="profile" />
     <div v-else class="prism__fallback">
       <span class="prism__orb prism__orb--a" />
       <span class="prism__orb prism__orb--b" />
