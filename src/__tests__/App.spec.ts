@@ -7,6 +7,8 @@ const mountOptions = {
   global: {
     stubs: {
       PrismArtifact: true,
+      AtmosphereField: true,
+      SoftCursor: true,
     },
   },
 }

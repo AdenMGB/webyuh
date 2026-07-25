@@ -1,106 +1,135 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from "vue";
-import HeroHeadline from "./components/HeroHeadline.vue";
-import PrismArtifact from "./components/PrismArtifact.vue";
-import SiteNav from "./components/SiteNav.vue";
+import { onBeforeUnmount, onMounted, ref } from 'vue'
+import AtmosphereField from './components/AtmosphereField.vue'
+import HeroHeadline from './components/HeroHeadline.vue'
+import PrismArtifact from './components/PrismArtifact.vue'
+import SiteNav from './components/SiteNav.vue'
+import SoftCursor from './components/SoftCursor.vue'
 import {
+  bindRevealObserver,
   disableDeviceOrientation,
   enableDeviceOrientation,
   gyroActive,
   resetPointerTarget,
   setPointerTarget,
   setScrollProgress,
+  tickMotion,
+  updateAtmosphereVars,
   updateParallaxLayers,
-} from "./composables/motionField";
+} from './composables/motionField'
 
-const ready = ref(false);
-const siteRoot = ref<HTMLElement | null>(null);
+const ready = ref(false)
+const scrolled = ref(false)
+const siteRoot = ref<HTMLElement | null>(null)
 
-let rafId = 0;
-let gyroRequested = false;
+let rafId = 0
+let lastTs = 0
+let gyroRequested = false
+let unbindReveal: (() => void) | undefined
+
 const prefersReducedMotion =
-  typeof window !== "undefined" &&
-  typeof window.matchMedia === "function" &&
-  window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  typeof window !== 'undefined' &&
+  typeof window.matchMedia === 'function' &&
+  window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
 const isTouchDevice =
-  typeof window !== "undefined" &&
-  ((typeof window.matchMedia === "function" &&
-    window.matchMedia("(pointer: coarse)").matches) ||
-    navigator.maxTouchPoints > 0);
+  typeof window !== 'undefined' &&
+  ((typeof window.matchMedia === 'function' &&
+    window.matchMedia('(pointer: coarse)').matches) ||
+    navigator.maxTouchPoints > 0)
 
 function onScroll() {
-  const max = document.documentElement.scrollHeight - window.innerHeight;
-  setScrollProgress(max > 0 ? window.scrollY / max : 0);
+  const max = document.documentElement.scrollHeight - window.innerHeight
+  setScrollProgress(max > 0 ? window.scrollY / max : 0)
+  scrolled.value = window.scrollY > 12
 }
 
 function onPointerMove(event: PointerEvent) {
-  if (prefersReducedMotion || gyroActive.value) return;
-  setPointerTarget(event.clientX, event.clientY);
+  if (prefersReducedMotion || gyroActive.value) return
+  setPointerTarget(event.clientX, event.clientY)
 }
 
 function onPointerLeave() {
-  resetPointerTarget();
+  resetPointerTarget()
 }
 
 async function onFirstGesture() {
-  if (gyroRequested || prefersReducedMotion || !isTouchDevice) return;
-  gyroRequested = true;
-  await enableDeviceOrientation();
+  if (gyroRequested || prefersReducedMotion || !isTouchDevice) return
+  gyroRequested = true
+  await enableDeviceOrientation()
 }
 
-function tick() {
+function tick(ts = performance.now()) {
+  const dt = lastTs ? (ts - lastTs) / 1000 : 1 / 60
+  lastTs = ts
+
   if (!prefersReducedMotion && siteRoot.value) {
-    updateParallaxLayers(siteRoot.value);
+    tickMotion(dt)
+    updateParallaxLayers(siteRoot.value)
+    updateAtmosphereVars(siteRoot.value)
   }
-  rafId = window.requestAnimationFrame(tick);
+
+  rafId = window.requestAnimationFrame(tick)
 }
 
 onMounted(() => {
-  onScroll();
-  window.addEventListener("scroll", onScroll, { passive: true });
-  window.addEventListener("resize", onScroll);
-  window.addEventListener("pointermove", onPointerMove, { passive: true });
-  window.addEventListener("pointerleave", onPointerLeave);
-  // iOS requires a user gesture before DeviceOrientationEvent.requestPermission()
-  window.addEventListener("pointerdown", onFirstGesture, { passive: true });
-  window.addEventListener("touchstart", onFirstGesture, { passive: true });
-  rafId = window.requestAnimationFrame(tick);
+  onScroll()
+  window.addEventListener('scroll', onScroll, { passive: true })
+  window.addEventListener('resize', onScroll)
+  window.addEventListener('pointermove', onPointerMove, { passive: true })
+  window.addEventListener('pointerleave', onPointerLeave)
+  window.addEventListener('pointerdown', onFirstGesture, { passive: true })
+  window.addEventListener('touchstart', onFirstGesture, { passive: true })
+  unbindReveal = bindRevealObserver(siteRoot.value ?? document)
+  rafId = window.requestAnimationFrame(tick)
   requestAnimationFrame(() => {
-    ready.value = true;
-  });
-});
+    ready.value = true
+  })
+})
 
 onBeforeUnmount(() => {
-  window.removeEventListener("scroll", onScroll);
-  window.removeEventListener("resize", onScroll);
-  window.removeEventListener("pointermove", onPointerMove);
-  window.removeEventListener("pointerleave", onPointerLeave);
-  window.removeEventListener("pointerdown", onFirstGesture);
-  window.removeEventListener("touchstart", onFirstGesture);
-  disableDeviceOrientation();
-  window.cancelAnimationFrame(rafId);
-});
+  window.removeEventListener('scroll', onScroll)
+  window.removeEventListener('resize', onScroll)
+  window.removeEventListener('pointermove', onPointerMove)
+  window.removeEventListener('pointerleave', onPointerLeave)
+  window.removeEventListener('pointerdown', onFirstGesture)
+  window.removeEventListener('touchstart', onFirstGesture)
+  disableDeviceOrientation()
+  unbindReveal?.()
+  window.cancelAnimationFrame(rafId)
+})
 </script>
 
 <template>
-  <div ref="siteRoot" class="site" :class="{ 'site--ready': ready }">
+  <div
+    ref="siteRoot"
+    class="site"
+    :class="{ 'site--ready': ready, 'site--scrolled': scrolled }"
+  >
     <PrismArtifact />
+    <AtmosphereField />
+    <SoftCursor />
 
     <div class="site__content">
-      <SiteNav />
+      <SiteNav :scrolled="scrolled" />
 
       <main>
         <section id="top" class="hero">
           <div class="hero__stage">
-            <div class="hero__title reveal reveal--delay-1">
+            <div
+              class="hero__title reveal reveal--delay-1"
+              data-parallax="0.1"
+              data-parallax-mouse="22"
+              data-parallax-scale="0.03"
+            >
               <HeroHeadline />
             </div>
           </div>
           <p
             class="hero__lead reveal reveal--delay-2"
-            data-parallax="0.22"
+            data-parallax="0.24"
             data-parallax-mouse="14"
+            data-parallax-blur="1.5"
           >
             A developer volunteering on BetterSEQTA — open tools that make school software kinder
             for students and staff.
@@ -109,11 +138,30 @@ onBeforeUnmount(() => {
 
         <section id="about" class="band">
           <div class="band__inner">
-            <p class="eyebrow" data-parallax="0.12">About</p>
-            <h2 class="band__display" data-parallax="0.28" data-parallax-mouse="18">
+            <p
+              class="eyebrow"
+              data-reveal="mask"
+              data-parallax="0.14"
+              data-parallax-mouse="8"
+            >
+              About
+            </p>
+            <h2
+              class="band__display"
+              data-reveal="mask"
+              data-parallax="0.32"
+              data-parallax-mouse="18"
+              data-parallax-scale="0.04"
+            >
               Building for free.
             </h2>
-            <p class="band__body" data-parallax="0.18" data-parallax-mouse="10">
+            <p
+              class="band__body"
+              data-reveal="up"
+              data-parallax="0.2"
+              data-parallax-mouse="10"
+              data-parallax-blur="2"
+            >
               I’m AdenMGB — an Adelaide developer who puts IT skills toward open education tooling.
               Not for a paycheck: because students deserve software that feels human. BetterSEQTA is
               where most of that energy goes.
@@ -123,21 +171,42 @@ onBeforeUnmount(() => {
 
         <section id="betterseqta" class="work">
           <div class="work__inner">
-            <p class="section-note" data-parallax="0.1">Singular focus</p>
-            <h2 class="work__title" data-parallax="0.24" data-parallax-mouse="16">
-              <a href="https://betterseqta.org/" target="_blank" rel="noopener noreferrer">
+            <p class="section-note" data-reveal="up" data-parallax="0.12">Singular focus</p>
+            <h2
+              class="work__title"
+              data-reveal="mask"
+              data-parallax="0.28"
+              data-parallax-mouse="16"
+              data-parallax-scale="0.035"
+            >
+              <a
+                href="https://betterseqta.org/"
+                target="_blank"
+                rel="noopener noreferrer"
+                data-cursor="Open"
+              >
                 BetterSEQTA+
               </a>
             </h2>
-            <p class="work__meta" data-parallax="0.16">Open source · Chrome · Edge · Firefox</p>
-            <p class="work__body" data-parallax="0.2" data-parallax-mouse="10">
+            <p class="work__meta" data-reveal="up" data-parallax="0.18">
+              Open source · Chrome · Edge · Firefox
+            </p>
+            <p
+              class="work__body"
+              data-reveal="up"
+              data-parallax="0.22"
+              data-parallax-mouse="10"
+              data-parallax-blur="2"
+            >
               An open-source browser extension that makes SEQTA Learn actually usable — themes, dark
               mode, notifications, plugins, and layout tools used by tens of thousands of students
               and staff.
             </p>
             <a
               class="work__link"
-              data-parallax="0.12"
+              data-reveal="up"
+              data-parallax="0.14"
+              data-cursor="Visit"
               href="https://betterseqta.org/"
               target="_blank"
               rel="noopener noreferrer"
@@ -148,19 +217,27 @@ onBeforeUnmount(() => {
         </section>
 
         <footer id="contact" class="footer">
-          <div class="footer__rule" />
+          <div class="footer__rule" data-reveal="up" />
           <div class="footer__inner">
-            <div class="footer__col">
+            <div class="footer__col" data-reveal="up" data-parallax="0.1">
               <p class="footer__label">Contact</p>
-              <a class="footer__link" href="mailto:aden@adenmgb.com">aden@adenmgb.com</a>
+              <a class="footer__link" href="mailto:aden@adenmgb.com" data-cursor="Email">
+                aden@adenmgb.com
+              </a>
             </div>
-            <div class="footer__col footer__col--end">
+            <div
+              class="footer__col footer__col--end"
+              data-reveal="up"
+              data-parallax="0.12"
+              data-parallax-mouse="8"
+            >
               <p class="footer__label">Elsewhere</p>
               <a
                 class="footer__link"
                 href="https://github.com/AdenMGB"
                 target="_blank"
                 rel="noopener noreferrer"
+                data-cursor="GitHub"
               >
                 GitHub
               </a>
@@ -169,6 +246,7 @@ onBeforeUnmount(() => {
                 href="https://github.com/BetterSEQTA"
                 target="_blank"
                 rel="noopener noreferrer"
+                data-cursor="Org"
               >
                 BetterSEQTA org
               </a>
@@ -186,6 +264,13 @@ onBeforeUnmount(() => {
   min-height: 100vh;
   color: var(--color-bone-white);
   background: var(--surface-obsidian-canvas);
+  --motion-x: 0;
+  --motion-y: 0;
+  --motion-scroll: 0;
+  --motion-scroll-y: 0vh;
+  --prism-depth-blur: 0px;
+  --prism-depth-opacity: 1;
+  --prism-depth-shift: 0vh;
 }
 
 .site__content {
@@ -216,7 +301,7 @@ onBeforeUnmount(() => {
 }
 
 .site__content [data-parallax] {
-  will-change: transform;
+  will-change: transform, filter;
   backface-visibility: hidden;
 }
 
@@ -381,10 +466,10 @@ onBeforeUnmount(() => {
 
 .reveal {
   opacity: 0;
-  transform: translateY(16px);
+  transform: translateY(18px);
   transition:
-    opacity 0.8s var(--ease-focus),
-    transform 0.8s var(--ease-focus);
+    opacity 0.9s var(--ease-focus),
+    transform 0.9s var(--ease-focus);
 }
 
 .reveal--delay-1 {
@@ -398,6 +483,34 @@ onBeforeUnmount(() => {
 .site--ready .reveal {
   opacity: 1;
   transform: translateY(0);
+}
+
+[data-reveal='up'] {
+  opacity: 0;
+  transform: translate3d(0, 28px, 0);
+  transition:
+    opacity 0.9s var(--ease-focus),
+    transform 0.9s var(--ease-focus),
+    filter 0.9s var(--ease-focus);
+  transition-delay: 0.05s;
+}
+
+[data-reveal='mask'] {
+  opacity: 1;
+  clip-path: inset(0 0 100% 0);
+  transform: translate3d(0, 18px, 0);
+  transition:
+    clip-path 1s var(--ease-focus),
+    transform 1s var(--ease-focus),
+    filter 1s var(--ease-focus);
+  transition-delay: 0.04s;
+}
+
+[data-reveal].is-inview {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+  clip-path: inset(0 0 0 0);
+  filter: blur(0);
 }
 
 @media (max-width: 720px) {
