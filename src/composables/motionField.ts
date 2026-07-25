@@ -3,8 +3,14 @@ import { reactive, ref } from 'vue'
 /** Page scroll progress in [0, 1]. */
 export const scrollProgress = ref(0)
 
-/** Normalized look target in [-1, 1] (center = 0) — pointer and/or gyro. */
+/** Raw normalized look target in [-1, 1] (center = 0) — pointer and/or gyro. */
 export const pointerTarget = reactive({ x: 0, y: 0 })
+
+/** Lerped pointer used for silky vivid-style motion. */
+export const smoothPointer = reactive({ x: 0, y: 0 })
+
+/** Lerped scroll progress for background / blur easing. */
+export const smoothScroll = ref(0)
 
 /** True once device orientation is driving motion. */
 export const gyroActive = ref(false)
@@ -76,10 +82,24 @@ export function disableDeviceOrientation() {
   gyroActive.value = false
 }
 
+function damp(current: number, target: number, lambda: number, dt: number) {
+  return current + (target - current) * (1 - Math.exp(-lambda * dt))
+}
+
+/** Advance lerped pointer / scroll — call once per animation frame. */
+export function tickMotion(dt = 1 / 60) {
+  const frame = Math.min(0.05, Math.max(0.001, dt))
+  smoothPointer.x = damp(smoothPointer.x, pointerTarget.x, 7.5, frame)
+  smoothPointer.y = damp(smoothPointer.y, pointerTarget.y, 7.5, frame)
+  smoothScroll.value = damp(smoothScroll.value, scrollProgress.value, 5.5, frame)
+}
+
 /**
- * Apply locomotive-style parallax to `[data-parallax]` nodes.
+ * Apply vivid/locomotive-style parallax to `[data-parallax]` nodes.
  * `data-parallax` = scroll speed factor (e.g. 0.18).
  * Optional `data-parallax-mouse` = cursor/gyro shift in px at full pointer.
+ * Optional `data-parallax-blur` = max blur (px) when far from viewport center.
+ * Optional `data-parallax-scale` = extra scale amplitude (e.g. 0.04).
  */
 export function updateParallaxLayers(root: ParentNode = document) {
   const nodes = root.querySelectorAll<HTMLElement>('[data-parallax]')
@@ -88,11 +108,65 @@ export function updateParallaxLayers(root: ParentNode = document) {
   nodes.forEach((node) => {
     const speed = Number(node.dataset.parallax || 0)
     const mouseAmp = Number(node.dataset.parallaxMouse || 0)
+    const blurAmp = Number(node.dataset.parallaxBlur || 0)
+    const scaleAmp = Number(node.dataset.parallaxScale || 0)
     const rect = node.getBoundingClientRect()
     const centerOffset = (rect.top + rect.height / 2 - vh / 2) / vh
-    const scrollShift = -centerOffset * speed * 120
-    const mouseX = pointerTarget.x * mouseAmp
-    const mouseY = pointerTarget.y * mouseAmp * 0.65
-    node.style.transform = `translate3d(${mouseX.toFixed(2)}px, ${(scrollShift + mouseY).toFixed(2)}px, 0)`
+    const absOffset = Math.min(1.5, Math.abs(centerOffset))
+    const scrollShift = -centerOffset * speed * 140
+    const mouseX = smoothPointer.x * mouseAmp
+    const mouseY = smoothPointer.y * mouseAmp * 0.65
+    const scale = 1 + (0.5 - Math.min(1, absOffset)) * scaleAmp
+    const blur = blurAmp > 0 ? absOffset * blurAmp : 0
+
+    node.style.transform = `translate3d(${mouseX.toFixed(2)}px, ${(scrollShift + mouseY).toFixed(2)}px, 0) scale(${scale.toFixed(4)})`
+    if (blurAmp > 0) {
+      node.style.filter = blur > 0.05 ? `blur(${blur.toFixed(2)}px)` : 'none'
+    }
   })
+}
+
+/** Drive CSS custom properties used by atmosphere / prism depth. */
+export function updateAtmosphereVars(root: HTMLElement) {
+  const px = smoothPointer.x
+  const py = smoothPointer.y
+  const scroll = smoothScroll.value
+  root.style.setProperty('--motion-x', px.toFixed(4))
+  root.style.setProperty('--motion-y', py.toFixed(4))
+  root.style.setProperty('--motion-scroll', scroll.toFixed(4))
+  root.style.setProperty('--motion-scroll-y', `${(scroll * -18).toFixed(2)}vh`)
+  root.style.setProperty('--prism-depth-blur', `${(scroll * 10).toFixed(2)}px`)
+  root.style.setProperty('--prism-depth-opacity', `${(1 - scroll * 0.45).toFixed(3)}`)
+  root.style.setProperty('--prism-depth-shift', `${(scroll * 8 + py * 2).toFixed(2)}vh`)
+}
+
+/**
+ * Observe `[data-reveal]` nodes and toggle `.is-inview` when they enter.
+ * Mirrors vivid's scroll-call / mask reveal pattern.
+ */
+export function bindRevealObserver(root: ParentNode = document): () => void {
+  if (typeof IntersectionObserver === 'undefined') {
+    root.querySelectorAll<HTMLElement>('[data-reveal]').forEach((node) => {
+      node.classList.add('is-inview')
+    })
+    return () => undefined
+  }
+
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        const node = entry.target as HTMLElement
+        if (entry.isIntersecting) {
+          node.classList.add('is-inview')
+          if (node.dataset.revealOnce !== 'false') observer.unobserve(node)
+        } else if (node.dataset.revealOnce === 'false') {
+          node.classList.remove('is-inview')
+        }
+      })
+    },
+    { threshold: 0.18, rootMargin: '0px 0px -8% 0px' },
+  )
+
+  root.querySelectorAll<HTMLElement>('[data-reveal]').forEach((node) => observer.observe(node))
+  return () => observer.disconnect()
 }

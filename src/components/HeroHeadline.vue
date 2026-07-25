@@ -33,7 +33,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="headline" data-parallax="0.08" data-parallax-mouse="28">
+  <div class="headline">
     <p class="headline__kicker">We build</p>
 
     <h1 class="headline__display" aria-live="polite">
