@@ -38,15 +38,12 @@ const links = [
   background: transparent;
   transition:
     background-color 0.45s var(--ease-focus),
-    backdrop-filter 0.45s var(--ease-focus),
     border-color 0.45s var(--ease-focus);
   border-bottom: 1px solid transparent;
 }
 
 .nav--scrolled {
-  background: rgb(16 16 16 / 0.55);
-  backdrop-filter: blur(16px) saturate(1.15);
-  -webkit-backdrop-filter: blur(16px) saturate(1.15);
+  background: rgb(16 16 16 / 0.82);
   border-bottom-color: rgb(64 63 63 / 0.45);
 }
 

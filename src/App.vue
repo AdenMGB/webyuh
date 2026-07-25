@@ -2,6 +2,7 @@
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import AtmosphereField from './components/AtmosphereField.vue'
 import HeroHeadline from './components/HeroHeadline.vue'
+import PageIntro from './components/PageIntro.vue'
 import PrismArtifact from './components/PrismArtifact.vue'
 import SiteNav from './components/SiteNav.vue'
 import SoftCursor from './components/SoftCursor.vue'
@@ -82,10 +83,11 @@ onMounted(() => {
   window.addEventListener('touchstart', onFirstGesture, { passive: true })
   unbindReveal = bindRevealObserver(siteRoot.value ?? document)
   rafId = window.requestAnimationFrame(tick)
-  requestAnimationFrame(() => {
-    ready.value = true
-  })
 })
+
+function onIntroDone() {
+  ready.value = true
+}
 
 onBeforeUnmount(() => {
   window.removeEventListener('scroll', onScroll)
@@ -106,6 +108,7 @@ onBeforeUnmount(() => {
     class="site"
     :class="{ 'site--ready': ready, 'site--scrolled': scrolled }"
   >
+    <PageIntro @done="onIntroDone" />
     <PrismArtifact />
     <AtmosphereField />
     <SoftCursor />
@@ -129,7 +132,6 @@ onBeforeUnmount(() => {
             class="hero__lead reveal reveal--delay-2"
             data-parallax="0.24"
             data-parallax-mouse="14"
-            data-parallax-blur="1.5"
           >
             A developer volunteering on BetterSEQTA — open tools that make school software kinder
             for students and staff.
@@ -160,7 +162,6 @@ onBeforeUnmount(() => {
               data-reveal="up"
               data-parallax="0.2"
               data-parallax-mouse="10"
-              data-parallax-blur="2"
             >
               I’m AdenMGB — an Adelaide developer who puts IT skills toward open education tooling.
               Not for a paycheck: because students deserve software that feels human. BetterSEQTA is
@@ -196,7 +197,6 @@ onBeforeUnmount(() => {
               data-reveal="up"
               data-parallax="0.22"
               data-parallax-mouse="10"
-              data-parallax-blur="2"
             >
               An open-source browser extension that makes SEQTA Learn actually usable — themes, dark
               mode, notifications, plugins, and layout tools used by tens of thousands of students
@@ -268,9 +268,6 @@ onBeforeUnmount(() => {
   --motion-y: 0;
   --motion-scroll: 0;
   --motion-scroll-y: 0vh;
-  --prism-depth-blur: 0px;
-  --prism-depth-opacity: 1;
-  --prism-depth-shift: 0vh;
 }
 
 .site__content {
@@ -301,7 +298,7 @@ onBeforeUnmount(() => {
 }
 
 .site__content [data-parallax] {
-  will-change: transform, filter;
+  will-change: transform;
   backface-visibility: hidden;
 }
 
@@ -490,8 +487,7 @@ onBeforeUnmount(() => {
   transform: translate3d(0, 28px, 0);
   transition:
     opacity 0.9s var(--ease-focus),
-    transform 0.9s var(--ease-focus),
-    filter 0.9s var(--ease-focus);
+    transform 0.9s var(--ease-focus);
   transition-delay: 0.05s;
 }
 
@@ -501,8 +497,7 @@ onBeforeUnmount(() => {
   transform: translate3d(0, 18px, 0);
   transition:
     clip-path 1s var(--ease-focus),
-    transform 1s var(--ease-focus),
-    filter 1s var(--ease-focus);
+    transform 1s var(--ease-focus);
   transition-delay: 0.04s;
 }
 
@@ -510,7 +505,6 @@ onBeforeUnmount(() => {
   opacity: 1;
   transform: translate3d(0, 0, 0);
   clip-path: inset(0 0 0 0);
-  filter: blur(0);
 }
 
 @media (max-width: 720px) {

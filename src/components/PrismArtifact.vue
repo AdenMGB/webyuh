@@ -55,11 +55,6 @@ onBeforeUnmount(() => {
   z-index: 0;
   pointer-events: none;
   overflow: hidden;
-  transform: translate3d(0, var(--prism-depth-shift, 0vh), 0);
-  filter: blur(var(--prism-depth-blur, 0px));
-  opacity: var(--prism-depth-opacity, 1);
-  will-change: transform, filter, opacity;
-  transition: opacity 0.2s linear;
 }
 
 .prism :deep(canvas) {
