@@ -23,6 +23,7 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 import { computed, onBeforeUnmount, reactive, shallowRef } from 'vue'
 import type { PrismProfile } from '../composables/prismCapability'
 import {
+  CUBE_COUNT,
   createPoseBuffer,
   sampleFormation,
   sampleIntro,
@@ -53,12 +54,12 @@ const camera = shallowRef<{
 } | null>(null)
 
 /** Live cube poses for imperative meshes + sampling. */
-const cubeStates = createPoseBuffer(6)
-const targetPoses = createPoseBuffer(6)
+const cubeStates = createPoseBuffer(CUBE_COUNT)
+const targetPoses = createPoseBuffer(CUBE_COUNT)
 
 /** Reactive numeric poses so Tres RoundedBox props actually update each frame. */
 const cubeUi = reactive(
-  Array.from({ length: 6 }, () => ({
+  Array.from({ length: CUBE_COUNT }, () => ({
     x: 0,
     y: 0,
     z: 0,
@@ -210,10 +211,10 @@ onBeforeRender(({ delta, elapsed }) => {
 
   if (!group.value) return
 
-  smoothedScroll = MathUtils.damp(smoothedScroll, scrollProgress.value, 3.4, delta)
-  smoothedPointerX = MathUtils.damp(smoothedPointerX, pointerTarget.x, 3.2, delta)
-  smoothedPointerY = MathUtils.damp(smoothedPointerY, pointerTarget.y, 3.2, delta)
-  smoothedIntro = MathUtils.damp(smoothedIntro, introProgress.value, 4.2, delta)
+  smoothedScroll = MathUtils.damp(smoothedScroll, scrollProgress.value, 2.6, delta)
+  smoothedPointerX = MathUtils.damp(smoothedPointerX, pointerTarget.x, 2.4, delta)
+  smoothedPointerY = MathUtils.damp(smoothedPointerY, pointerTarget.y, 2.4, delta)
+  smoothedIntro = MathUtils.damp(smoothedIntro, introProgress.value, 3.6, delta)
 
   if (smoothedIntro < 0.999) {
     sampleIntro(smoothedIntro, targetPoses)
@@ -224,11 +225,12 @@ onBeforeRender(({ delta, elapsed }) => {
   for (let i = 0; i < cubeStates.length; i += 1) {
     const cur = cubeStates[i]!
     const next = targetPoses[i]!
-    cur.position.lerp(next.position, 1 - Math.exp(-6.5 * delta))
-    cur.scale.lerp(next.scale, 1 - Math.exp(-6.5 * delta))
-    cur.rotation.x = MathUtils.damp(cur.rotation.x, next.rotation.x, 6.5, delta)
-    cur.rotation.y = MathUtils.damp(cur.rotation.y, next.rotation.y, 6.5, delta)
-    cur.rotation.z = MathUtils.damp(cur.rotation.z, next.rotation.z, 6.5, delta)
+    // Slower pose damping = calmer morphs
+    cur.position.lerp(next.position, 1 - Math.exp(-3.8 * delta))
+    cur.scale.lerp(next.scale, 1 - Math.exp(-3.8 * delta))
+    cur.rotation.x = MathUtils.damp(cur.rotation.x, next.rotation.x, 3.8, delta)
+    cur.rotation.y = MathUtils.damp(cur.rotation.y, next.rotation.y, 3.8, delta)
+    cur.rotation.z = MathUtils.damp(cur.rotation.z, next.rotation.z, 3.8, delta)
   }
   applyPoseToMeshes()
 
@@ -236,8 +238,8 @@ onBeforeRender(({ delta, elapsed }) => {
   const py = smoothedPointerY
 
   if (prefersReducedMotion) {
-    group.value.rotation.y = 0.35
-    group.value.rotation.x = 0.12
+    group.value.rotation.y = 0.28
+    group.value.rotation.x = 0.1
     group.value.rotation.z = 0
     group.value.position.x = 0
     group.value.position.y = 0
@@ -245,35 +247,24 @@ onBeforeRender(({ delta, elapsed }) => {
     return
   }
 
-  // Keep group motion gentle so formation shapes stay readable (vivid-like).
-  const idle = elapsed * 0.08
-  group.value.rotation.y = idle + px * 0.28
-  group.value.rotation.x = Math.sin(elapsed * 0.11) * 0.06 + py * 0.18
-  group.value.rotation.z = Math.cos(elapsed * 0.09) * 0.03 + px * 0.05
-  group.value.position.x = px * 0.22
-  group.value.position.y = MathUtils.lerp(0.1, -0.2, smoothedScroll) - py * 0.14
-  group.value.scale.setScalar(MathUtils.lerp(1, 0.92, smoothedScroll))
+  // Very subtle group drift — formation shapes do the storytelling.
+  const idle = elapsed * 0.035
+  group.value.rotation.y = 0.28 + idle + px * 0.08
+  group.value.rotation.x = 0.1 + Math.sin(elapsed * 0.08) * 0.02 + py * 0.05
+  group.value.rotation.z = Math.cos(elapsed * 0.07) * 0.012 + px * 0.015
+  group.value.position.x = px * 0.06
+  group.value.position.y = py * -0.04
+  group.value.scale.setScalar(1)
 
   if (camera.value) {
-    const closeBoost = MathUtils.smoothstep(smoothedScroll, 0.08, 0.28)
-    const camZ = MathUtils.lerp(
-      6.8,
-      5.6,
-      closeBoost * (1 - MathUtils.smoothstep(smoothedScroll, 0.35, 0.55)),
-    )
-    camera.value.position.x = MathUtils.damp(camera.value.position.x, px * 0.18, 2.4, delta)
-    camera.value.position.y = MathUtils.damp(
-      camera.value.position.y,
-      0.15 - py * 0.12,
-      2.4,
-      delta,
-    )
-    camera.value.position.z = MathUtils.damp(camera.value.position.z, camZ, 2.2, delta)
-    camera.value.lookAt(px * 0.12, -py * 0.08, 0)
+    camera.value.position.x = MathUtils.damp(camera.value.position.x, px * 0.05, 1.8, delta)
+    camera.value.position.y = MathUtils.damp(camera.value.position.y, 0.15 - py * 0.04, 1.8, delta)
+    camera.value.position.z = MathUtils.damp(camera.value.position.z, 6.8, 1.8, delta)
+    camera.value.lookAt(px * 0.04, -py * 0.03, 0)
   }
 
   if (!isCompatible.value) {
-    const fringe = 0.0007 + Math.hypot(px, py) * 0.0006
+    const fringe = 0.0006 + Math.hypot(px, py) * 0.00025
     aberrationOffset.set(fringe, fringe * 0.9)
   }
 })

@@ -1,5 +1,7 @@
 import { Euler, MathUtils, Vector3 } from 'three'
 
+export const CUBE_COUNT = 4
+
 export type CubePose = {
   position: Vector3
   scale: Vector3
@@ -10,10 +12,10 @@ function pose(
   x: number,
   y: number,
   z: number,
-  s = 0.85,
-  rx = 0.12,
-  ry = 0.35,
-  rz = 0.08,
+  s = 0.92,
+  rx = 0.18,
+  ry = 0.48,
+  rz = 0.06,
 ): CubePose {
   return {
     position: new Vector3(x, y, z),
@@ -23,54 +25,45 @@ function pose(
 }
 
 /**
- * Scroll-linked formations inspired by vividand.co's tetromino morphs.
- * 0: L, 1: one cube close, 2: cross, 3: stairs, 4: spread.
+ * Compact 4-cube formations (vivid-style tetromino language).
+ * 0: L
+ * 1: one cube close-up (others stay put, slightly smaller)
+ * 2: T
+ * 3: skewed diamond / Z
  */
 export const formations: CubePose[][] = [
+  // L
   [
-    pose(0.95, 0.95, 0.05, 0.9, 0.2, 0.55, 0.1),
-    pose(0, 0.95, 0.05, 0.9, 0.2, 0.55, 0.1),
-    pose(0, 0, 0.05, 0.9, 0.2, 0.55, 0.1),
-    pose(0, -0.95, 0.05, 0.9, 0.2, 0.55, 0.1),
-    pose(0.95, 0.95, -0.75, 0.55, 0.1, -0.4, 0.2),
-    pose(0, -0.95, -0.75, 0.55, -0.15, 0.5, -0.1),
+    pose(0.9, 0.9, 0.05, 0.92),
+    pose(0, 0.9, 0.05, 0.92),
+    pose(0, 0, 0.05, 0.92),
+    pose(0, -0.9, 0.05, 0.92),
   ],
+  // Close-up: only the foot cube steps forward and grows; rest barely shifts
   [
-    pose(0.25, 0.05, 1.55, 1.35, 0.35, 0.7, 0.12),
-    pose(-1.55, 0.85, -0.55, 0.48, 0.1, -0.5, 0.2),
-    pose(1.65, 0.55, -0.85, 0.45, -0.2, 0.8, -0.1),
-    pose(-0.85, -1.25, -0.35, 0.55, 0.45, 0.25, -0.3),
-    pose(1.35, -0.95, 0.15, 0.4, 0.15, -0.7, 0.35),
-    pose(-1.45, -0.15, -1.15, 0.38, -0.35, 0.4, 0.45),
+    pose(0.55, 0.15, 1.05, 1.28, 0.28, 0.62, 0.08),
+    pose(-0.15, 0.85, -0.2, 0.72, 0.16, 0.42, 0.05),
+    pose(-0.15, 0.05, -0.25, 0.72, 0.16, 0.42, 0.05),
+    pose(-0.15, -0.75, -0.3, 0.72, 0.16, 0.42, 0.05),
   ],
+  // T
   [
-    pose(0, 0, 0.1, 0.88, 0.25, 0.4, 0.05),
-    pose(0, 1.05, 0.1, 0.78, 0.15, 0.5, 0.1),
-    pose(0, -1.05, 0.1, 0.78, 0.35, 0.3, -0.1),
-    pose(1.05, 0, 0.1, 0.78, 0.2, 0.6, 0.15),
-    pose(-1.05, 0, 0.1, 0.78, 0.2, -0.4, -0.1),
-    pose(0, 0, -0.95, 0.6, -0.2, 0.7, 0.2),
+    pose(-0.9, 0.55, 0.05, 0.9),
+    pose(0, 0.55, 0.05, 0.9),
+    pose(0.9, 0.55, 0.05, 0.9),
+    pose(0, -0.45, 0.05, 0.9),
   ],
+  // Skewed Z / diamond step
   [
-    pose(-1.2, -0.9, 0.2, 0.7, 0.3, 0.4, 0.1),
-    pose(-0.4, -0.35, 0.05, 0.75, 0.25, 0.5, 0.08),
-    pose(0.4, 0.2, -0.1, 0.8, 0.2, 0.55, 0.05),
-    pose(1.2, 0.75, -0.25, 0.85, 0.15, 0.6, 0.02),
-    pose(-1.2, 0.75, -0.8, 0.5, -0.2, -0.5, 0.3),
-    pose(1.2, -0.9, -0.8, 0.5, 0.4, 0.3, -0.25),
-  ],
-  [
-    pose(-1.6, 0.7, 0.3, 0.62, 0.2, -0.4, 0.2),
-    pose(1.55, 0.55, 0.15, 0.68, -0.15, 0.7, -0.1),
-    pose(0.1, -0.15, 0.85, 0.95, 0.3, 0.5, 0.1),
-    pose(-0.9, -1.1, -0.2, 0.58, 0.45, 0.2, -0.3),
-    pose(1.1, -1.0, -0.45, 0.55, 0.1, -0.65, 0.35),
-    pose(0.2, 1.25, -0.7, 0.5, -0.3, 0.45, 0.25),
+    pose(-0.7, 0.55, 0.12, 0.88, 0.2, 0.4, 0.08),
+    pose(0.15, 0.55, 0.02, 0.88, 0.2, 0.5, 0.06),
+    pose(-0.15, -0.4, 0.02, 0.88, 0.22, 0.45, 0.05),
+    pose(0.7, -0.4, -0.08, 0.88, 0.18, 0.55, 0.04),
   ],
 ]
 
 /** Scroll stops for each formation keyframe. */
-export const formationStops = [0, 0.18, 0.42, 0.68, 1] as const
+export const formationStops = [0, 0.22, 0.55, 1] as const
 
 export function sampleFormation(scroll: number, out: CubePose[]): void {
   const t = MathUtils.clamp(scroll, 0, 1)
@@ -102,15 +95,15 @@ export function sampleIntro(progress: number, out: CubePose[]): void {
   for (let c = 0; c < out.length; c += 1) {
     const current = out[c]!
     const T = target[c]!
-    const stagger = MathUtils.clamp((p - c * 0.06) / 0.75, 0, 1)
+    const stagger = MathUtils.clamp((p - c * 0.05) / 0.8, 0, 1)
     const e = MathUtils.smootherstep(stagger, 0, 1)
-    current.position.set(T.position.x * e, T.position.y * e - (1 - e) * 1.4, T.position.z * e)
-    current.scale.setScalar(T.scale.x * (0.15 + 0.85 * e))
-    current.rotation.set(T.rotation.x * e, T.rotation.y * e + (1 - e) * 1.2, T.rotation.z * e)
+    current.position.set(T.position.x * e, T.position.y * e - (1 - e) * 0.8, T.position.z * e)
+    current.scale.setScalar(T.scale.x * (0.2 + 0.8 * e))
+    current.rotation.set(T.rotation.x * e, T.rotation.y * e + (1 - e) * 0.6, T.rotation.z * e)
   }
 }
 
-export function createPoseBuffer(count = 6): CubePose[] {
+export function createPoseBuffer(count = CUBE_COUNT): CubePose[] {
   return Array.from({ length: count }, () => ({
     position: new Vector3(),
     scale: new Vector3(1, 1, 1),
