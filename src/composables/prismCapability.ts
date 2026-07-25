@@ -1,7 +1,9 @@
 export type PrismRenderMode = 'webgl' | 'fallback'
+export type PrismQuality = 'high' | 'low'
 
 export type PrismCapability = {
   mode: PrismRenderMode
+  quality: PrismQuality
   reason: string
 }
 
@@ -58,9 +60,20 @@ function hasLowCpu(): boolean {
   return typeof cores === 'number' && cores > 0 && cores <= 4
 }
 
+function isMobileLike(env: {
+  isCoarsePointer?: () => boolean
+  isNarrowViewport?: () => boolean
+  maxTouchPoints?: number
+}): boolean {
+  const coarse = env.isCoarsePointer?.() ?? isCoarsePointer()
+  const narrow = env.isNarrowViewport?.() ?? isNarrowViewport()
+  const touchPoints = env.maxTouchPoints ?? navigator.maxTouchPoints ?? 0
+  return coarse || (touchPoints > 0 && narrow)
+}
+
 /**
- * Transmission glass + post-processing is too heavy for phones.
- * Skip WebGL on touch/mobile/low-power devices and fall back to CSS.
+ * Always prefer the real WebGL prism when the GPU can run it.
+ * Mobile/low-power devices get a lighter quality preset instead of a CSS fallback.
  */
 export function resolvePrismCapability(
   env: {
@@ -75,43 +88,28 @@ export function resolvePrismCapability(
   } = {},
 ): PrismCapability {
   if (typeof window === 'undefined') {
-    return { mode: 'fallback', reason: 'ssr' }
+    return { mode: 'fallback', quality: 'low', reason: 'ssr' }
   }
 
   const reducedMotion = env.prefersReducedMotion?.() ?? prefersReducedMotion()
   if (reducedMotion) {
-    return { mode: 'fallback', reason: 'reduced-motion' }
-  }
-
-  const saveData = env.hasSaveData?.() ?? hasSaveData()
-  if (saveData) {
-    return { mode: 'fallback', reason: 'save-data' }
-  }
-
-  const lowMemory = env.hasLowMemory?.() ?? hasLowMemory()
-  if (lowMemory) {
-    return { mode: 'fallback', reason: 'low-memory' }
-  }
-
-  const coarse = env.isCoarsePointer?.() ?? isCoarsePointer()
-  const narrow = env.isNarrowViewport?.() ?? isNarrowViewport()
-  const touchPoints = env.maxTouchPoints ?? navigator.maxTouchPoints ?? 0
-  const isMobileLike = coarse || (touchPoints > 0 && narrow)
-
-  if (isMobileLike) {
-    return { mode: 'fallback', reason: 'mobile' }
-  }
-
-  // Weak laptops still struggle with MeshTransmissionMaterial FBOs.
-  const lowCpu = env.hasLowCpu?.() ?? hasLowCpu()
-  if (lowCpu && narrow) {
-    return { mode: 'fallback', reason: 'low-power' }
+    return { mode: 'fallback', quality: 'low', reason: 'reduced-motion' }
   }
 
   const webgl = env.hasWebGL?.() ?? hasWebGL()
   if (!webgl) {
-    return { mode: 'fallback', reason: 'no-webgl' }
+    return { mode: 'fallback', quality: 'low', reason: 'no-webgl' }
   }
 
-  return { mode: 'webgl', reason: 'ok' }
+  const saveData = env.hasSaveData?.() ?? hasSaveData()
+  const lowMemory = env.hasLowMemory?.() ?? hasLowMemory()
+  const lowCpu = env.hasLowCpu?.() ?? hasLowCpu()
+  const narrow = env.isNarrowViewport?.() ?? isNarrowViewport()
+  const mobile = isMobileLike(env)
+
+  if (mobile || saveData || lowMemory || (lowCpu && narrow)) {
+    return { mode: 'webgl', quality: 'low', reason: mobile ? 'mobile' : 'low-power' }
+  }
+
+  return { mode: 'webgl', quality: 'high', reason: 'ok' }
 }
