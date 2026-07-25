@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { resolvePrismCapability } from '../composables/prismCapability'
 
 describe('resolvePrismCapability', () => {
-  it('enables webgl on capable desktop environments', () => {
+  it('enables high-quality webgl on capable desktop environments', () => {
     const result = resolvePrismCapability({
       hasWebGL: () => true,
       prefersReducedMotion: () => false,
@@ -13,10 +13,10 @@ describe('resolvePrismCapability', () => {
       hasLowCpu: () => false,
       maxTouchPoints: 0,
     })
-    expect(result).toEqual({ mode: 'webgl', reason: 'ok' })
+    expect(result).toEqual({ mode: 'webgl', quality: 'high', reason: 'ok' })
   })
 
-  it('falls back on mobile-like coarse pointers', () => {
+  it('keeps webgl on mobile with a low-quality preset', () => {
     const result = resolvePrismCapability({
       hasWebGL: () => true,
       prefersReducedMotion: () => false,
@@ -27,10 +27,10 @@ describe('resolvePrismCapability', () => {
       hasLowCpu: () => false,
       maxTouchPoints: 5,
     })
-    expect(result).toEqual({ mode: 'fallback', reason: 'mobile' })
+    expect(result).toEqual({ mode: 'webgl', quality: 'low', reason: 'mobile' })
   })
 
-  it('falls back when touch + narrow viewport even if pointer is fine', () => {
+  it('uses low quality for touch + narrow viewports', () => {
     const result = resolvePrismCapability({
       hasWebGL: () => true,
       prefersReducedMotion: () => false,
@@ -41,7 +41,7 @@ describe('resolvePrismCapability', () => {
       hasLowCpu: () => false,
       maxTouchPoints: 2,
     })
-    expect(result).toEqual({ mode: 'fallback', reason: 'mobile' })
+    expect(result).toEqual({ mode: 'webgl', quality: 'low', reason: 'mobile' })
   })
 
   it('falls back for reduced motion', () => {
@@ -55,7 +55,7 @@ describe('resolvePrismCapability', () => {
       hasLowCpu: () => false,
       maxTouchPoints: 0,
     })
-    expect(result).toEqual({ mode: 'fallback', reason: 'reduced-motion' })
+    expect(result).toEqual({ mode: 'fallback', quality: 'low', reason: 'reduced-motion' })
   })
 
   it('falls back when webgl is unavailable', () => {
@@ -69,6 +69,6 @@ describe('resolvePrismCapability', () => {
       hasLowCpu: () => false,
       maxTouchPoints: 0,
     })
-    expect(result).toEqual({ mode: 'fallback', reason: 'no-webgl' })
+    expect(result).toEqual({ mode: 'fallback', quality: 'low', reason: 'no-webgl' })
   })
 })
